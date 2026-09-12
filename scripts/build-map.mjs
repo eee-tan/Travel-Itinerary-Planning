@@ -370,11 +370,11 @@ function destinationRegions(mapData, tripData) {
         countryCode: code,
         countryCodes: [code],
         heading: `${String(country.name || code).toUpperCase()} / ${label}`,
-        description: `${label}行程示意图`
+        description: `${label} trip overview`
       };
     });
   }
-  const region = mapData.region || { id: "trip-map", label: "本次旅程" };
+  const region = mapData.region || { id: "trip-map", label: "This trip" };
   return [{
     ...region,
     countryCodes: [...new Set([...(region.countryCodes || []), region.countryCode, ...primaryCodes].map(normalizeCountryCode).filter(Boolean))]
@@ -438,7 +438,7 @@ function buildRegion(mapData, manifest) {
     const label = labelFor(colored, index, occupied);
     const primary = place.name || place.nameZh || place.id;
     const secondary = place.nameZh && place.nameZh !== primary ? place.nameZh : null;
-    return { id: place.id, ...point, color: colored.color, tx: Number(label.x.toFixed(2)), ty: Number(label.y.toFixed(2)), size: 24, anchor: label.anchor, lines: secondary ? [`${primary} /`, secondary] : [primary], query: place.query || `${primary} ${mapData.region.label}`, geo: place.geo, days };
+    return { id: place.id, ...point, color: colored.color, category: place.category || "attraction", tx: Number(label.x.toFixed(2)), ty: Number(label.y.toFixed(2)), size: 24, anchor: label.anchor, lines: secondary ? [`${primary} /`, secondary] : [primary], query: place.query || `${primary} ${mapData.region.label}`, geo: place.geo, days };
   });
   const placeById = new Map(renderedPlaces.map((place) => [place.id, place]));
   const overviewPlaceIds = overviewPlaces(mapData.places, mapData.routes);
@@ -472,8 +472,8 @@ function buildRegion(mapData, manifest) {
     canvas: { width: GOLDEN.width, height: GOLDEN.height },
     projection: { type: "relative-schematic", bounds: null },
     baseImage: template.file,
-    title: mapData.region.title || mapData.title || `${mapData.region.label} · 旅行路线`,
-    ariaLabel: `${mapData.region.label}模板化旅行路线示意图，共${days.length}天`,
+    title: mapData.region.title || mapData.title || `${mapData.region.label} · Travel Route`,
+    ariaLabel: `${mapData.region.label} illustrative travel route covering ${days.length} days`,
     description: mapData.region.description,
     disclaimer: mapData.disclaimer || manifest.disclaimer,
     heading: { text: mapData.region.heading || mapData.region.label, x: 33, y: 105, size: 40 },

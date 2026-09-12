@@ -1,5 +1,5 @@
 (() => {
-  const TRAVEL_HASHES = new Set(["", "#top", "#flights", "#route", "#itinerary", "#drive", "#prep"]);
+  const TRAVEL_HASHES = new Set(["", "#top", "#flights", "#route", "#itinerary", "#drive", "#expenses", "#prep"]);
   const isLedgerHash = (hash) => hash === "#ledger" || hash.startsWith("#ledger-");
   const ledgerEnabled = () => !document.querySelector("#ledger-navigation-link")?.hidden;
   const viewForHash = (hash) => isLedgerHash(hash) && ledgerEnabled() ? "ledger" : "travel";
@@ -23,7 +23,7 @@
 
   function setVisibleView(nextView, options = {}) {
     const { travelView, ledgerView, travelTrigger, ledgerLink, skipLink } = elements();
-    if (!travelView || !ledgerView) return;
+    if (!travelView) return;
 
     const viewChanged = activeView !== nextView;
     if (viewChanged) scrollPositions[activeView] = window.scrollY;
@@ -31,9 +31,9 @@
     const ledgerActive = nextView === "ledger";
 
     travelView.hidden = ledgerActive;
-    ledgerView.hidden = !ledgerActive;
+    if (ledgerView) ledgerView.hidden = !ledgerActive;
     travelView.toggleAttribute("inert", ledgerActive);
-    ledgerView.toggleAttribute("inert", !ledgerActive);
+    ledgerView?.toggleAttribute("inert", !ledgerActive);
     document.body.dataset.activeView = nextView;
     if (travelTrigger) {
       if (ledgerActive) travelTrigger.removeAttribute("aria-current");
@@ -55,7 +55,7 @@
       scrollFrame = 0;
       if (!ledgerActive && viewChanged) window.dispatchEvent(new Event("travel-view:shown"));
       if (options.targetId && nextView === "travel") {
-        document.getElementById(options.targetId)?.scrollIntoView({ block: "start" });
+        document.getElementById(options.targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
       } else if ((viewChanged || options.forceScroll) && options.restore) {
         window.scrollTo({ top: scrollPositions[nextView] || 0 });
       } else if (viewChanged || options.forceScroll) {
@@ -104,14 +104,13 @@
       if (ledgerLink) {
         event.preventDefault();
         travelMenu?.removeAttribute("open");
-        navigate("#ledger");
+        navigate("#expenses");
         return;
       }
 
-      const travelLink = event.target.closest(".travel-navigation-menu a, #wordmark");
+      const travelLink = event.target.closest(".floating-navigation a, #wordmark");
       if (travelLink) {
         event.preventDefault();
-        travelMenu?.removeAttribute("open");
         navigate(travelLink.getAttribute("href") || "#top");
         return;
       }

@@ -191,11 +191,11 @@ if (!uninitialized && config?.modules?.overview === true && map?.mapMode === "te
     if (!Number.isFinite(Number(place.geo?.lat)) || !Number.isFinite(Number(place.geo?.lng))) warnings.push(`地点 ${place.id || "unknown"} 缺少有效经纬度，将使用确定性备用布局`);
   }
   for (const route of map.routes || []) {
-    if (!Number.isInteger(route.day) || !Array.isArray(route.placeIds) || route.placeIds.length < 2) errors.push("每条 Map route 必须包含 day 和至少两个 placeIds");
+    if (!Number.isInteger(route.day) || !Array.isArray(route.placeIds) || route.placeIds.length < 1) errors.push("每条 Map route 必须包含 day 和至少一个 placeId");
     for (const placeId of route.placeIds || []) if (!placeIds.has(placeId)) errors.push(`Map route 引用了不存在的地点：${placeId}`);
   }
   for (const route of map.dailyRoutes || []) {
-    if (!Number.isInteger(route.day) || !Array.isArray(route.placeIds) || route.placeIds.length < 2) errors.push("每条 Map dailyRoute 必须包含 day 和至少两个 placeIds");
+    if (!Number.isInteger(route.day) || !Array.isArray(route.placeIds) || route.placeIds.length < 1) errors.push("每条 Map dailyRoute 必须包含 day 和至少一个 placeId");
     for (const placeId of route.placeIds || []) if (!placeIds.has(placeId)) errors.push(`Map dailyRoute 引用了不存在的地点：${placeId}`);
   }
 }
@@ -222,7 +222,7 @@ if (map && map.mapMode !== "template-auto") {
     if (!Number.isFinite(place.geo?.lat) || !Number.isFinite(place.geo?.lng)) errors.push(`地图地点缺少有效坐标: ${place.id}`);
   }
   for (const route of [...(map.routes || []), ...(map.dailyRoutes || [])]) {
-    if (!Number.isInteger(route.day) || !Array.isArray(route.placeIds) || route.placeIds.length < 2) errors.push(`地图路线 Day ${route.day ?? "?"} 无效`);
+    if (!Number.isInteger(route.day) || !Array.isArray(route.placeIds) || route.placeIds.length < 1) errors.push(`地图路线 Day ${route.day ?? "?"} 无效`);
     for (const id of route.placeIds || []) if (!placeIds.has(id)) errors.push(`地图路线引用不存在的地点: ${id}`);
   }
 }

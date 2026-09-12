@@ -1,10 +1,12 @@
 /* Golden route interaction reused with frozen map templates. */
 let mapRoutes = [];
 let mapInstance = 0;
+let activeGeographicMap = null;
+let activeGeographicBounds = null;
 const transportNames = {
-  drive: "自驾", train: "火车", rail: "火车", "cable-car": "缆车",
-  hike: "步行", walk: "步行", return: "返程", "rental-car": "租车",
-  boat: "游船", ferry: "渡轮", flight: "飞行", transfer: "接驳"
+  drive: "Drive", train: "Train", rail: "Rail", "cable-car": "Cable car",
+  hike: "Hike", walk: "Walk", return: "Return", "rental-car": "Rental car",
+  boat: "Boat", ferry: "Ferry", flight: "Flight", transfer: "Transfer"
 };
 
 function mapRouteDefinitions(source) {
@@ -27,7 +29,8 @@ function placeOptions(source, placeId) {
 }
 
 function scheduleItemsForPin(day, pin) {
-  const references = Array.isArray(pin?.itemIds) && pin.itemIds.length ? pin.itemIds : pin?.items || [];
+  const rawReferences = Array.isArray(pin?.itemIds) && pin.itemIds.length ? pin.itemIds : pin?.items || [];
+  const references = Array.isArray(rawReferences) ? rawReferences : [rawReferences].filter(Boolean);
   return references.map((reference) => typeof reference === "number"
     ? day.schedule[reference]
     : day.schedule.find((item) => item.id === reference)
@@ -53,6 +56,18 @@ function transportIcon(type) {
   return `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${icons[key] || icons.drive}</svg>`;
 }
 
+function placeCategoryIcon(category) {
+  const icons = {
+    hotel: '<path d="M4 19V8h5a4 4 0 0 1 4 4v7M4 14h16v5M7 11h2M3 21v-2m18 2v-2"/>',
+    noodles: '<path d="M4 11h16c0 5-3 8-8 8s-8-3-8-8Zm2 10h12M8 3c2 2-2 3 0 5m5-5c2 2-2 3 0 5m5-5c2 2-2 3 0 5"/>',
+    bbq: '<path d="M5 11h14a7 7 0 0 1-14 0Zm3 7-2 4m10-4 2 4M8 7l2-4m4 4 2-4"/>',
+    airport: '<path d="m3 16 18-8M9 13 5 6l2-1 6 5m2-1 1-6 2-1 1 5M8 15l-1 4 2-1 3-4"/>',
+    attraction: '<path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z"/>',
+    city: '<path d="M5 21V8h6v13M11 4h8v17M8 11h1m-1 3h1m-1 3h1m5-9h2m-2 4h2m-2 4h2M3 21h18"/>'
+  };
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${icons[category] || icons.attraction}</svg>`;
+}
+
 function mapArtwork(source, selected, id, viewport) {
   if (!selected) return travelOverviewArtwork(state.data.days, source);
   const layout = dailyMapLayoutFor(source, selected.day);
@@ -63,7 +78,7 @@ function mapArtwork(source, selected, id, viewport) {
   svg.setAttribute("data-daily-version", "3");
   svg.setAttribute("aria-label", day.title);
   svg.querySelector("title").textContent = day.title;
-  svg.querySelector("desc").textContent = "仅显示当天路线；地点圆点打开地图，交通图标查看行程。";
+  svg.querySelector("desc").textContent = "Shows this day's route only. Select a place dot for the map or a transport icon for trip details.";
   svg.querySelectorAll('[id^="overview-route-"]').forEach((group) => {
     if (group.id !== `overview-route-${selected.day}`) group.remove();
   });
@@ -85,36 +100,64 @@ function mapArtwork(source, selected, id, viewport) {
 
 function dailyPointRole(layout, placeId, index) {
   if (layout.roles?.[placeId]) return layout.roles[placeId];
-  if (layout.places.length === 1) return "起点 / 终点";
-  if (index === 0) return "起点";
-  if (index === layout.places.length - 1) return "终点";
-  return "途经点";
+  if (layout.places.length === 1) return "Start / finish";
+  if (index === 0) return "Start";
+  if (index === layout.places.length - 1) return "Finish";
+  return "Via";
 }
 
 function travelMapMarkup(source, route) {
   const id = `travel-map-${++mapInstance}`;
   const day = route && state.data.days.find((item) => item.day === route.day);
   const layout = route && dailyMapLayoutFor(source, route.day);
-  const canvas = source.canvas || { width: 1448, height: 1086 };
-  const viewport = route ? dailyViewportFor(source, layout) : { x: 0, y: 0, width: canvas.width, height: canvas.height };
-  const position = (x, y) => `left:${(x - viewport.x) / viewport.width * 100}%;top:${(y - viewport.y) / viewport.height * 100}%`;
   const placeLayers = placeLayersFor(source);
-  const places = route && layout ? layout.places.map((placeId, index) => {
-    const place = placeLayers.find((item) => item.id === placeId);
-    if (!place) return "";
-    const role = dailyPointRole(layout, placeId, index);
-    return `<button type="button" class="map-place-dot" style="${position(place.x, place.y)}" data-map-region="${escapeHtml(source.id)}" data-place-id="${placeId}" data-place-day="${day.day}" data-place-role="${role}" aria-label="${role}：${escapeHtml(placeOptions(source, placeId)[0][0])}，打开 Google Maps" aria-haspopup="dialog" aria-expanded="false"><span></span></button>`;
-  }).join("") : "";
-  const transport = route && layout ? layout.transport.map((pin, index) => {
-    const item = scheduleItemsForPin(day, pin)[0];
-    if (!item) return "";
-    return `<button class="transport-pin" type="button" style="${position(pin.x, pin.y)}" data-map-region="${escapeHtml(source.id)}" data-transport-day="${day.day}" data-transport-group="${index}" aria-expanded="false" aria-haspopup="dialog" aria-label="查看${escapeHtml(transportNames[item.type] || "交通")}：${escapeHtml(item.text)}">${transportIcon(item.type)}</button>`;
-  }).join("") : "";
-  const mapNote = source.disclaimer || "本图为模板化行程示意图，仅表达地点的相对方位与路线顺序，不代表真实比例或精确地理边界。如需使用真实国家或城市地图，可在生成后自行调整。";
+  const visiblePlaceIds = route && layout ? layout.places : (source.overviewPlaceIds || placeLayers.map((place) => place.id));
+  const mapNote = route ? `Showing Day ${day.day} locations only` : "Accurate geographic overview of all trip locations";
+  window.setTimeout(() => initializeGeographicMap(id, source, visiblePlaceIds, route), 0);
   return `<div class="travel-map-block ${route ? "is-daily" : "is-overview"}" ${route ? `style="--route-color:${route.color}"` : ""}>
-    <div class="travel-map-scroll"><div class="travel-map-canvas" id="${id}">${mapArtwork(source, route, id, viewport)}${places}${transport}</div></div>
-    <div class="map-utility"><span>${route ? "点圆点看地图 · 点图标看交通" : escapeHtml(mapNote)}</span><button type="button" data-expand-map="${id}">放大 ↗</button></div>
+    <div class="accurate-map" id="${id}" role="application" aria-label="${route ? `Day ${day.day}` : "Trip overview"} interactive map"><p>Loading interactive map…</p></div>
+    <div class="map-utility"><span>${escapeHtml(mapNote)} · Pinch or use + / − to zoom</span><button type="button" data-fit-map>Reset view</button></div>
   </div>`;
+}
+
+function initializeGeographicMap(id, source, visiblePlaceIds, route) {
+  const element = document.getElementById(id);
+  if (!element) return;
+  const places = visiblePlaceIds.map((placeId) => placeLayersFor(source).find((place) => place.id === placeId))
+    .filter((place) => Number.isFinite(Number(place?.geo?.lat)) && Number.isFinite(Number(place?.geo?.lng)));
+  if (!window.L) {
+    element.classList.add("map-fallback");
+    element.innerHTML = places.map((place) => { const [label, query] = placeOptions(source, place.id)[0]; return `<a href="${mapsSearch(query)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)} ↗</a>`; }).join("");
+    return;
+  }
+  activeGeographicMap?.remove();
+  const map = window.L.map(element, { zoomControl: true, scrollWheelZoom: true, zoomSnap: .5, zoomDelta: .5 });
+  activeGeographicMap = map;
+  window.L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(map);
+  const coordinates = places.map((place) => [Number(place.geo.lat), Number(place.geo.lng)]);
+  places.forEach((place) => {
+    const [label, query] = placeOptions(source, place.id)[0];
+    const category = place.category || "attraction";
+    const icon = window.L.divIcon({ className: "leaflet-category-marker", html: `<span class="map-place-dot--${escapeHtml(category)}">${placeCategoryIcon(category)}</span>`, iconSize: [34, 34], iconAnchor: [17, 17], popupAnchor: [0, -16] });
+    window.L.marker([Number(place.geo.lat), Number(place.geo.lng)], { icon, title: label })
+      .addTo(map)
+      .bindPopup(`<strong>${escapeHtml(label)}</strong><br><a href="${mapsSearch(query)}" target="_blank" rel="noopener noreferrer">Open in Google Maps ↗</a>`);
+  });
+  if (coordinates.length > 1) {
+    window.L.polyline(coordinates, { color: route?.color || "#287b90", weight: route ? 4 : 3, opacity: .72, dashArray: route ? null : "7 8" }).addTo(map);
+    activeGeographicBounds = window.L.latLngBounds(coordinates).pad(.14);
+    map.fitBounds(activeGeographicBounds, { padding: [24, 24], maxZoom: route ? 10 : 7 });
+  } else if (coordinates.length === 1) {
+    activeGeographicBounds = window.L.latLngBounds(coordinates);
+    map.setView(coordinates[0], 11);
+  } else {
+    activeGeographicBounds = null;
+    map.setView([36.3, 138.2], 6);
+  }
+  window.setTimeout(() => map.invalidateSize(), 80);
 }
 
 function activateDayMaps(root) {
@@ -133,8 +176,8 @@ function renderRoutePanel(regionId, dayNumber = 0) {
   root.dataset.region = source.id || "";
   mapRoutes = mapRouteDefinitions(source);
   const route = mapRoutes.find((item) => item.day === dayNumber);
-  root.innerHTML = `<div class="route-region-tabs" aria-label="旅行国家">${regions.map((region) => `<button type="button" data-route-region="${escapeHtml(region.id)}" aria-pressed="${region.id === source.id}">${escapeHtml(region.label || region.heading?.text || region.id)}</button>`).join("")}</div>
-  <div class="route-day-tabs" aria-label="${escapeHtml(source.label || "当前国家")}路线日期"><button type="button" data-route-day="0" aria-pressed="${!route}">总览</button>${mapRoutes.map((item) => { const day = state.data.days.find((candidate) => candidate.day === item.day); return day ? `<button type="button" data-route-day="${item.day}" style="--route-color:${item.color}" aria-pressed="${item === route}"><i></i>${day.date.slice(5).replace("-", "/")}</button>` : ""; }).join("")}</div>${travelMapMarkup(source, route)}`;
+  root.innerHTML = `${regions.length > 1 ? `<div class="route-region-tabs" aria-label="Destination countries">${regions.map((region) => `<button type="button" data-route-region="${escapeHtml(region.id)}" aria-pressed="${region.id === source.id}">${escapeHtml(region.label || region.heading?.text || region.id)}</button>`).join("")}</div>` : ""}
+  <div class="route-day-tabs" aria-label="Trip route dates"><button type="button" data-route-day="0" aria-pressed="${!route}">Overview</button>${mapRoutes.map((item) => { const day = state.data.days.find((candidate) => candidate.day === item.day); return day ? `<button type="button" data-route-day="${item.day}" style="--route-color:${item.color}" aria-pressed="${item === route}"><i></i>Day ${day.day}, ${escapeHtml(formatCompactDate(day.date))}</button>` : ""; }).join("")}</div>${travelMapMarkup(source, route)}`;
   if (route) activateDayMaps(root);
 }
 
@@ -158,8 +201,8 @@ function setupRouteExplorer() {
     const wasOpen = activePin === pin; closePopover(); if (wasOpen) return;
     activePin = pin; pin.setAttribute("aria-expanded", "true"); pin.setAttribute("aria-controls", "route-active-popover");
     popover = document.createElement("section"); popover.id = "route-active-popover"; popover.className = `route-popover ${map ? "route-place-popover" : "transport-popover"}`;
-    popover.setAttribute("role", "dialog"); popover.setAttribute("aria-label", map ? "地点 Google Maps" : "交通信息");
-    popover.innerHTML = `<button type="button" class="route-popover-close" data-close-route-popover aria-label="关闭">×</button>${content}`;
+    popover.setAttribute("role", "dialog"); popover.setAttribute("aria-label", map ? "Place on Google Maps" : "Transport details");
+    popover.innerHTML = `<button type="button" class="route-popover-close" data-close-route-popover aria-label="Close">×</button>${content}`;
     (pin.closest("dialog") || document.body).append(popover); positionPopover();
     popover.querySelector("[data-close-route-popover]").focus({ preventScroll: true });
   };
@@ -169,7 +212,10 @@ function setupRouteExplorer() {
     if (region || dayButton) {
       closePopover();
       const selectedRegionId = region?.dataset.routeRegion || $("#route-explorer").dataset.region;
-      renderRoutePanel(selectedRegionId, region ? 0 : Number(dayButton?.dataset.routeDay || 0));
+      const selectedDay = region ? 0 : Number(dayButton?.dataset.routeDay || 0);
+      if (selectedDay) window.openItineraryDay?.(selectedDay, { scroll: false });
+      renderRoutePanel(selectedRegionId, selectedDay);
+      if (selectedDay) requestAnimationFrame(() => window.openItineraryDay?.(selectedDay, { scroll: true }));
       return;
     }
     if (event.target.closest("[data-close-route-popover]")) { closePopover(true); return; }
@@ -181,7 +227,7 @@ function setupRouteExplorer() {
       showPopover(placePin, `<header><small>${escapeHtml(placePin.dataset.placeRole)}</small><strong data-popup-place-label>${escapeHtml(label)}</strong></header>
         ${options.length > 1 ? `<div class="popup-place-options">${options.map(([name, value], index) => `<button type="button" data-popup-query="${escapeHtml(value)}" data-popup-label="${escapeHtml(name)}" aria-pressed="${index === 0}">${escapeHtml(name)}</button>`).join("")}</div>` : ""}
         <iframe title="${escapeHtml(label)} Google Maps" src="https://maps.google.com/maps?q=${encodeURIComponent(query)}&output=embed" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
-        <footer><a data-popup-external href="${mapsSearch(query)}" target="_blank" rel="noopener noreferrer">用 Google Maps 打开 ↗</a><small>页内地图供查看，实际导航以地图服务结果为准。</small></footer>`, true);
+        <footer><a data-popup-external href="${mapsSearch(query)}" target="_blank" rel="noopener noreferrer">Open in Google Maps ↗</a><small>The embedded map is for reference; use the map provider's current results for navigation.</small></footer>`, true);
       return;
     }
     const pin = event.target.closest("[data-transport-day]");
@@ -189,7 +235,7 @@ function setupRouteExplorer() {
       const day = state.data.days.find((item) => item.day === Number(pin.dataset.transportDay));
       const source = travelMapSource(state.data?.routeMap, pin.dataset.mapRegion);
       const group = dailyMapLayoutFor(source, day.day).transport[Number(pin.dataset.transportGroup)];
-      showPopover(pin, scheduleItemsForPin(day, group).map((item) => `<div class="transport-leg"><strong>${escapeHtml(transportNames[item.type] || "交通")} · ${escapeHtml(item.time)}</strong><p>${escapeHtml(item.text)}</p></div>`).join(""));
+      showPopover(pin, scheduleItemsForPin(day, group).map((item) => `<div class="transport-leg"><strong>${escapeHtml(transportNames[item.type] || "Transport")} · ${escapeHtml(item.time)}</strong><p>${escapeHtml(item.text)}</p></div>`).join(""));
       return;
     }
     const option = event.target.closest("[data-popup-query]");
@@ -204,6 +250,11 @@ function setupRouteExplorer() {
     }
     if (event.target.closest(".route-popover")) return;
     closePopover();
+    const fitMap = event.target.closest("[data-fit-map]");
+    if (fitMap && activeGeographicMap && activeGeographicBounds) {
+      activeGeographicMap.fitBounds(activeGeographicBounds, { padding: [24, 24], maxZoom: 10 });
+      return;
+    }
     const zoom = event.target.closest("[data-expand-map]");
     if (zoom) {
       const dialog = $("#map-dialog");

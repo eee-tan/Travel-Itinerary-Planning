@@ -1,4 +1,5 @@
-{
+/* Generated from trip-data.json by npm run build:data. */
+window.TRAVEL_PLAN_DATA_BUNDLE = {
   "$schema": "./schemas/trip-data.schema.json",
   "schemaVersion": "2.0-lite",
   "config": {
@@ -2232,4 +2233,4 @@
       }
     ]
   }
-}
+};
