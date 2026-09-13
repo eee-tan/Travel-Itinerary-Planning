@@ -6,6 +6,10 @@ const state = {
   purchasedTickets: new Set(),
   todos: [],
   dayNotes: {},
+  dayPhotos: {},
+  dayTitles: {},
+  appointmentMedia: {},
+  customAppointments: [],
   expenses: []
 };
 
@@ -111,6 +115,45 @@ function todayForTrip() {
 
 function mapsSearch(query) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+function openMediaLightbox(source, alt = "Travel image") {
+  const dialog = $("#media-lightbox");
+  const image = $("#media-lightbox-image");
+  if (!dialog || !image || !source) return;
+  image.src = source;
+  image.alt = alt;
+  if (typeof dialog.showModal === "function") dialog.showModal();
+  else dialog.setAttribute("open", "");
+}
+
+async function imageFileToDataUrl(file, { maxEdge = 1280, quality = .82 } = {}) {
+  if (!file?.type?.startsWith("image/")) throw new Error("Please choose an image file.");
+  const source = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("The image could not be read."));
+    reader.readAsDataURL(file);
+  });
+  const image = await new Promise((resolve, reject) => {
+    const element = new Image();
+    element.onload = () => resolve(element);
+    element.onerror = () => reject(new Error("The image could not be opened."));
+    element.src = source;
+  });
+  const scale = Math.min(1, maxEdge / Math.max(image.naturalWidth, image.naturalHeight));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+  canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
+function setupMediaLightbox() {
+  const dialog = $("#media-lightbox");
+  if (!dialog) return;
+  $("#media-lightbox-close").onclick = () => dialog.close?.();
+  dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close?.(); });
 }
 
 function heroDestinationFor(trip) {
@@ -381,8 +424,10 @@ function dayCard(day) {
   const today = todayForTrip();
   const isToday = day.date === today;
   const expanded = state.expandedDay === day.day;
+  const dayKey = day.id || `day-${String(day.day).padStart(2, "0")}`;
   const schedule = day.schedule.map((item) => {
-    const noteKey = `${day.id}:${item.id}`;
+    const noteKey = `${dayKey}:${item.id}`;
+    const photo = state.dayPhotos[noteKey] || "";
     const destinations = navigationDestinations(item);
     const mapLinks = destinations.map((destination) => `
       <button type="button" class="schedule-map-link" data-map-query="${escapeHtml(destination.query)}" data-map-url="${escapeHtml(destination.url || "")}" data-map-label="${escapeHtml(destination.label)}" aria-haspopup="dialog" aria-controls="place-map" aria-label="View ${escapeHtml(destination.label)} on the map">📍 ${escapeHtml(destination.label)}</button>
@@ -395,7 +440,11 @@ function dayCard(day) {
           <div class="schedule-text">${escapeHtml(item.text)}</div>
           ${scheduleTickets}
           ${mapLinks ? `<div class="schedule-map-links">${mapLinks}</div>` : ""}
-          <div class="schedule-note"><input type="text" maxlength="160" data-schedule-note="${escapeHtml(noteKey)}" value="${escapeHtml(state.dayNotes[noteKey] || "")}" placeholder="Add a quick note…" aria-label="Quick note for ${escapeHtml(item.time)} ${escapeHtml(item.text)}"><span role="status"></span></div>
+          <div class="schedule-quick-record">
+            <div class="schedule-note"><input type="text" maxlength="160" data-schedule-note="${escapeHtml(noteKey)}" value="${escapeHtml(state.dayNotes[noteKey] || "")}" placeholder="Add a quick note…" aria-label="Quick note for ${escapeHtml(item.time)} ${escapeHtml(item.text)}"><span role="status"></span></div>
+            <label class="schedule-photo-add" title="Add a photo"><input type="file" accept="image/*" data-schedule-photo="${escapeHtml(noteKey)}"><span aria-hidden="true">＋</span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="3"/><path d="m3 16 5-5 4 4 3-3 6 6M9 9h.01"/></svg><span class="sr-only">Add photo</span></label>
+            ${photo ? `<button type="button" class="schedule-photo-thumb" data-media-src="${escapeHtml(photo)}" data-media-alt="${escapeHtml(`${day.title} · ${item.time}`)}"><img src="${escapeHtml(photo)}" alt="Travel memory thumbnail"></button><button type="button" class="schedule-photo-remove" data-remove-schedule-photo="${escapeHtml(noteKey)}" aria-label="Remove photo">×</button>` : ""}
+          </div>
         </div>
       </li>
     `;
@@ -409,14 +458,16 @@ function dayCard(day) {
   return `
     <article class="day-card${isToday ? " is-today" : ""}" data-day="${day.day}">
       <span class="day-dot" aria-hidden="true"></span>
+      <div class="day-card-heading">
       <button class="day-toggle" type="button" aria-expanded="${expanded}" aria-controls="day-detail-${day.day}">
         <span>
           <span class="day-meta"><b>DAY ${day.day}</b><small>${escapeHtml(formatFullCompactDate(day.date))}${isToday ? " · TODAY" : ""}</small></span>
-          <span class="day-title">${escapeHtml(day.title)}</span>
           ${ticketSummary}
         </span>
         <span class="day-chevron" aria-hidden="true">+</span>
       </button>
+      <label class="day-title-editor"><span class="sr-only">Day ${day.day} title</span><input data-day-title="${escapeHtml(dayKey)}" value="${escapeHtml(state.dayTitles[dayKey] || day.title)}" maxlength="100" aria-label="Edit Day ${day.day} title" title="Click to edit this day title"></label>
+      </div>
       <div class="day-detail" id="day-detail-${day.day}" ${expanded ? "" : "hidden"}>
         <ol class="schedule">${schedule}</ol>
         ${costs ? `<div class="costs">${costs}</div>` : ""}
@@ -503,6 +554,15 @@ function renderTimeline() {
   $("#day-count").textContent = `${state.data.days.length} DAYS`;
   $("#timeline").innerHTML = state.data.days.map(dayCard).join("");
   $("#timeline").onclick = (event) => {
+    const mediaButton = event.target.closest("[data-media-src]");
+    if (mediaButton) { openMediaLightbox(mediaButton.dataset.mediaSrc, mediaButton.dataset.mediaAlt); return; }
+    const removePhoto = event.target.closest("[data-remove-schedule-photo]");
+    if (removePhoto) {
+      delete state.dayPhotos[removePhoto.dataset.removeSchedulePhoto];
+      savePersonalState();
+      renderTimeline();
+      return;
+    }
     const ticketButton = event.target.closest("[data-ticket-open]");
     if (ticketButton) {
       openTicketDialog(ticketButton.dataset.ticketOpen, ticketButton);
@@ -524,6 +584,30 @@ function renderTimeline() {
     }
   };
   $("#timeline").onchange = (event) => {
+    const titleInput = event.target.closest("[data-day-title]");
+    if (titleInput) {
+      const day = state.data.days.find((item) => (item.id || `day-${String(item.day).padStart(2, "0")}`) === titleInput.dataset.dayTitle);
+      const title = titleInput.value.trim();
+      if (day) {
+        const dayKey = day.id || `day-${String(day.day).padStart(2, "0")}`;
+        if (title && title !== day.title) state.dayTitles[dayKey] = title;
+        else delete state.dayTitles[dayKey];
+        titleInput.value = state.dayTitles[dayKey] || day.title;
+        savePersonalState();
+      }
+      return;
+    }
+    const photoInput = event.target.closest("[data-schedule-photo]");
+    if (photoInput) {
+      const file = photoInput.files?.[0];
+      if (!file) return;
+      imageFileToDataUrl(file, { maxEdge: 1000, quality: .78 }).then((source) => {
+        state.dayPhotos[photoInput.dataset.schedulePhoto] = source;
+        savePersonalState();
+        renderTimeline();
+      }).catch((error) => window.alert(error.message));
+      return;
+    }
     const noteInput = event.target.closest("[data-schedule-note]");
     if (noteInput) {
       state.dayNotes[noteInput.dataset.scheduleNote] = noteInput.value;
@@ -590,35 +674,126 @@ function renderRental() {
   const rental = state.data.groundTransport.rentalCar;
   const hotelAppointments = state.data.accommodations
     .filter((stay) => stay.name && stay.name !== "TBD")
-    .map((stay) => ({ type: "Hotel", sortDate: stay.checkInDate, stay }));
-  const appointments = [...hotelAppointments, { type: "Car rental", sortDate: rental.pickup.date, rental }]
+    .map((stay, index) => ({ id: stay.id || `hotel-${index + 1}`, type: "Hotel", sortDate: stay.checkInDate, stay }));
+  const builtIn = [...hotelAppointments, { id: "rental-car", type: "Car rental", sortDate: rental.pickup.date, rental }];
+  const custom = state.customAppointments.map((item) => ({ ...item, sortDate: item.date, custom: true }));
+  const appointments = [...builtIn, ...custom]
     .sort((a, b) => a.sortDate.localeCompare(b.sortDate));
   $("#rental-provider-label").textContent = `${appointments.length} BOOKINGS`;
   $("#rental-card").innerHTML = `<div class="appointment-list">${appointments.map((appointment) => {
+    const media = state.appointmentMedia[appointment.id] || appointment.attachmentUrl || "";
+    const mediaMarkup = `<div class="appointment-media">
+      ${media ? `<button type="button" class="appointment-thumb" data-media-src="${escapeHtml(media)}" data-media-alt="${escapeHtml(`${appointment.type} booking attachment`)}"><img src="${escapeHtml(media)}" alt="Booking attachment thumbnail"></button>` : `<span class="appointment-thumb appointment-thumb--empty" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="15" rx="3"/><path d="m3 16 5-5 4 4 3-3 6 6"/></svg></span>`}
+      <span><label class="mini-media-action">Upload<input type="file" accept="image/*" data-appointment-upload="${escapeHtml(appointment.id)}"></label><button type="button" class="mini-media-action" data-appointment-link="${escapeHtml(appointment.id)}">Link</button></span>
+    </div>`;
     if (appointment.stay) {
       const stay = appointment.stay;
       const stayAddress = stay.address || state.data.expenses?.items?.find((item) => item.description === stay.name)?.address || "";
       return `<article class="appointment-card">
         <div class="appointment-date"><span>${escapeHtml(formatFullCompactDate(stay.checkInDate))}</span><b>HOTEL</b></div>
         <div class="appointment-body"><h3>${escapeHtml(stay.name)}</h3><p>${escapeHtml(stay.cityOrArea)}</p>
-          <dl><div><dt>Check-in</dt><dd>${escapeHtml(formatFullCompactDate(stay.checkInDate))}${stay.checkInTime ? ` · ${escapeHtml(stay.checkInTime)}` : ""}</dd></div><div><dt>Check-out</dt><dd>${escapeHtml(formatFullCompactDate(stay.checkOutDate))}${stay.checkOutTime ? ` · ${escapeHtml(stay.checkOutTime)}` : ""}</dd></div>${stay.roomType ? `<div><dt>Room</dt><dd>${escapeHtml(stay.roomType)}</dd></div>` : ""}${stay.bookingReference ? `<div><dt>Booking</dt><dd>${escapeHtml(stay.bookingReference)}</dd></div>` : ""}</dl>
-          ${stayAddress ? `<a href="${mapsSearch(stayAddress)}" target="_blank" rel="noopener noreferrer">${escapeHtml(stayAddress)} ↗</a>` : ""}
-        </div></article>`;
+          <dl class="appointment-times"><div><dt>Check-in</dt><dd>${escapeHtml(formatFullCompactDate(stay.checkInDate))}${stay.checkInTime ? ` · ${escapeHtml(stay.checkInTime)}` : ""}</dd></div><div><dt>Check-out</dt><dd>${escapeHtml(formatFullCompactDate(stay.checkOutDate))}${stay.checkOutTime ? ` · ${escapeHtml(stay.checkOutTime)}` : ""}</dd></div></dl>
+          <dl class="appointment-details">${stay.roomType ? `<div><dt>Room</dt><dd>${escapeHtml(stay.roomType)}</dd></div>` : ""}${stay.bookingReference ? `<div><dt>Booking</dt><dd>${escapeHtml(stay.bookingReference)}</dd></div>` : ""}</dl>
+          ${stayAddress ? `<a class="appointment-location" href="${mapsSearch(stayAddress)}" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg><span>${escapeHtml(stayAddress)}</span></a>` : ""}
+        </div>${mediaMarkup}</article>`;
+    }
+    if (appointment.custom) {
+      return `<article class="appointment-card">
+        <div class="appointment-date"><span>${escapeHtml(formatFullCompactDate(appointment.date))}</span><b>${escapeHtml(appointment.type.toUpperCase())}</b></div>
+        <div class="appointment-body"><h3>${escapeHtml(appointment.title)}</h3><p>${escapeHtml(appointment.location || "")}</p>
+          <dl class="appointment-times">${appointment.start ? `<div><dt>Start</dt><dd>${escapeHtml(appointment.start)}</dd></div>` : ""}${appointment.end ? `<div><dt>End</dt><dd>${escapeHtml(appointment.end)}</dd></div>` : ""}</dl>
+          ${appointment.booking ? `<dl class="appointment-details"><div><dt>Booking</dt><dd>${escapeHtml(appointment.booking)}</dd></div></dl>` : ""}
+          ${appointment.address ? `<a class="appointment-location" href="${mapsSearch(appointment.address)}" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg><span>${escapeHtml(appointment.address)}</span></a>` : ""}
+          <button class="appointment-delete" type="button" data-appointment-delete="${escapeHtml(appointment.id)}">Delete</button>
+        </div>${mediaMarkup}</article>`;
     }
     return `<article class="appointment-card">
       <div class="appointment-date"><span>${escapeHtml(formatFullCompactDate(rental.pickup.date))}</span><b>CAR RENTAL</b></div>
       <div class="appointment-body"><h3>${escapeHtml(rental.company)}</h3><p>${escapeHtml(rental.vehicle.example)} · Model ${escapeHtml(rental.vehicle.class)}</p>
-        <dl><div><dt>Pickup</dt><dd>${escapeHtml(formatFullCompactDate(rental.pickup.date))} · ${escapeHtml(rental.pickup.time)}</dd></div><div><dt>Return</dt><dd>${escapeHtml(formatFullCompactDate(rental.dropoff.date))} · ${escapeHtml(rental.dropoff.time)}</dd></div><div><dt>Booking</dt><dd>${escapeHtml(rental.reservationNumber)}</dd></div></dl>
-        <a href="${mapsSearch(rental.pickup.address)}" target="_blank" rel="noopener noreferrer">${escapeHtml(rental.pickup.address)} ↗</a>
-      </div></article>`;
+        <dl class="appointment-times"><div><dt>Pickup</dt><dd>${escapeHtml(formatFullCompactDate(rental.pickup.date))} · ${escapeHtml(rental.pickup.time)}</dd></div><div><dt>Return</dt><dd>${escapeHtml(formatFullCompactDate(rental.dropoff.date))} · ${escapeHtml(rental.dropoff.time)}</dd></div></dl><dl class="appointment-details"><div><dt>Booking</dt><dd>${escapeHtml(rental.reservationNumber)}</dd></div></dl>
+        <a class="appointment-location" href="${mapsSearch(rental.pickup.address)}" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg><span>${escapeHtml(rental.pickup.address)}</span></a>
+      </div>${mediaMarkup}</article>`;
   }).join("")}</div>`;
   $("#drive-notes").replaceChildren();
+
+  const container = $("#drive");
+  container.onclick = (event) => {
+    const add = event.target.closest("[data-add-appointment]");
+    if (add) { event.preventDefault(); event.stopPropagation(); openAppointmentDialog(); return; }
+    const mediaButton = event.target.closest("[data-media-src]");
+    if (mediaButton) { openMediaLightbox(mediaButton.dataset.mediaSrc, mediaButton.dataset.mediaAlt); return; }
+    const linkButton = event.target.closest("[data-appointment-link]");
+    if (linkButton) {
+      const value = window.prompt("Paste an image link (https://…)", state.appointmentMedia[linkButton.dataset.appointmentLink] || "");
+      if (value === null) return;
+      const safe = /^https?:\/\//i.test(value.trim()) ? safeExternalUrl(value) : "";
+      if (value.trim() && !safe) { window.alert("Please enter a valid http(s) image link."); return; }
+      if (safe) state.appointmentMedia[linkButton.dataset.appointmentLink] = safe;
+      else delete state.appointmentMedia[linkButton.dataset.appointmentLink];
+      savePersonalState(); renderRental(); return;
+    }
+    const remove = event.target.closest("[data-appointment-delete]");
+    if (remove) {
+      state.customAppointments = state.customAppointments.filter((item) => item.id !== remove.dataset.appointmentDelete);
+      delete state.appointmentMedia[remove.dataset.appointmentDelete];
+      savePersonalState(); renderRental();
+    }
+  };
+  container.onchange = (event) => {
+    const input = event.target.closest("[data-appointment-upload]");
+    const file = input?.files?.[0];
+    if (!file) return;
+    imageFileToDataUrl(file).then((source) => {
+      state.appointmentMedia[input.dataset.appointmentUpload] = source;
+      savePersonalState(); renderRental();
+    }).catch((error) => window.alert(error.message));
+  };
+}
+
+function openAppointmentDialog() {
+  const dialog = $("#appointment-dialog");
+  const form = $("#appointment-form");
+  form.reset();
+  form.elements.date.value = state.data.trip.startDate;
+  if (typeof dialog.showModal === "function") dialog.showModal();
+  else dialog.setAttribute("open", "");
+  window.setTimeout(() => form.elements.title.focus(), 0);
+}
+
+function setupAppointmentDialog() {
+  const dialog = $("#appointment-dialog");
+  const form = $("#appointment-form");
+  if (!dialog || !form) return;
+  dialog.querySelectorAll("[data-close-appointment]").forEach((button) => { button.onclick = () => dialog.close?.(); });
+  form.onsubmit = async (event) => {
+    event.preventDefault();
+    const data = new FormData(form);
+    const id = `appointment-${Date.now()}`;
+    const item = Object.fromEntries(["type", "date", "title", "start", "end", "location", "address", "booking", "attachmentUrl"].map((key) => [key, String(data.get(key) || "").trim()]));
+    item.id = id;
+    const safeLink = /^https?:\/\//i.test(item.attachmentUrl) ? safeExternalUrl(item.attachmentUrl) : "";
+    if (item.attachmentUrl && !safeLink) { window.alert("Please enter a valid http(s) image link."); return; }
+    const file = form.elements.attachmentFile.files?.[0];
+    if (file) state.appointmentMedia[id] = await imageFileToDataUrl(file);
+    else if (safeLink) state.appointmentMedia[id] = safeLink;
+    delete item.attachmentUrl;
+    state.customAppointments.push(item);
+    savePersonalState();
+    dialog.close?.();
+    $("#appointments-panel").open = true;
+    renderRental();
+  };
 }
 
 function personalStorageKey(type) { return `travel-plan:${type}:${state.data.metadata.tripId}`; }
 
 function loadPersonalState() {
   try { state.dayNotes = JSON.parse(localStorage.getItem(personalStorageKey("day-notes")) || "{}"); } catch { state.dayNotes = {}; }
+  try { state.dayPhotos = JSON.parse(localStorage.getItem(personalStorageKey("day-photos")) || "{}"); } catch { state.dayPhotos = {}; }
+  try { state.dayTitles = JSON.parse(localStorage.getItem(personalStorageKey("day-titles")) || "{}"); } catch { state.dayTitles = {}; }
+  try { state.appointmentMedia = JSON.parse(localStorage.getItem(personalStorageKey("appointment-media")) || "{}"); } catch { state.appointmentMedia = {}; }
+  try { state.customAppointments = JSON.parse(localStorage.getItem(personalStorageKey("custom-appointments")) || "[]"); } catch { state.customAppointments = []; }
+  if (!Array.isArray(state.customAppointments)) state.customAppointments = [];
   try {
     const saved = JSON.parse(localStorage.getItem(personalStorageKey("expenses")) || "null");
     state.expenses = Array.isArray(saved) ? saved : structuredClone(state.data.expenses?.items || []);
@@ -627,15 +802,26 @@ function loadPersonalState() {
 
 function savePersonalState() {
   localStorage.setItem(personalStorageKey("day-notes"), JSON.stringify(state.dayNotes));
+  localStorage.setItem(personalStorageKey("day-photos"), JSON.stringify(state.dayPhotos));
+  localStorage.setItem(personalStorageKey("day-titles"), JSON.stringify(state.dayTitles));
+  localStorage.setItem(personalStorageKey("appointment-media"), JSON.stringify(state.appointmentMedia));
+  localStorage.setItem(personalStorageKey("custom-appointments"), JSON.stringify(state.customAppointments));
   localStorage.setItem(personalStorageKey("expenses"), JSON.stringify(state.expenses));
 }
 
 const moneyText = (currency, amount) => new Intl.NumberFormat("en-SG", { style: "currency", currency, maximumFractionDigits: 2 }).format(Number(amount) || 0);
 
 function supportedCurrencies() {
-  try { return Intl.supportedValuesOf("currency"); }
-  catch { return ["SGD", "JPY", "USD", "EUR", "GBP", "AUD", "CAD", "CHF", "CNY", "HKD", "KRW", "MYR", "NZD", "THB", "TWD"]; }
+  const priority = ["SGD", "JPY", "USD", "EUR", "GBP", "AUD", "CNY", "HKD", "KRW", "MYR", "THB", "TWD"];
+  try { return [...priority, ...Intl.supportedValuesOf("currency").filter((code) => !priority.includes(code))]; }
+  catch { return [...priority, "CAD", "CHF", "NZD"]; }
 }
+
+const expenseCategories = [
+  ["Transportation", "🚆"], ["Accommodation", "🏨"], ["Dining", "🍜"],
+  ["Shopping", "🛍️"], ["Tickets", "🎟️"], ["Custom", "✨"]
+];
+const expenseCategoryIcon = (category) => category === "Hotel" ? "🏨" : expenseCategories.find(([name]) => name === category)?.[1] || "✨";
 
 async function exchangeRateToSgd(currency) {
   if (currency === "SGD") return { rate: 1, source: "SGD base currency" };
@@ -660,10 +846,10 @@ function renderExpenses() {
     groups.get(item.date).push(item);
     return groups;
   }, new Map());
-  const groupedExpenseMarkup = [...groupedItems.entries()].map(([date, dailyItems], groupIndex) => {
+  const groupedExpenseMarkup = [...groupedItems.entries()].map(([date, dailyItems]) => {
     const dayTotal = dailyItems.reduce((sum, item) => sum + Number(item.sgdAmount || 0), 0);
-    return `<details class="expense-day" ${groupIndex === 0 ? "open" : ""}><summary><span><b>${escapeHtml(formatFullCompactDate(date))}</b><small>${dailyItems.length} ${dailyItems.length === 1 ? "expense" : "expenses"}</small></span><strong>${escapeHtml(moneyText("SGD", dayTotal))}</strong></summary><div>${dailyItems.map((item) => `<article class="expense-row expense-row--grouped">
-      <div><strong>${escapeHtml(item.description)}</strong><span>${escapeHtml(item.category || "Expense")}${item.note ? ` · ${escapeHtml(item.note)}` : ""}</span>${item.address ? `<a href="${mapsSearch(item.address)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.address)} ↗</a>` : ""}</div>
+    return `<details class="expense-day"><summary><span><b>${escapeHtml(formatFullCompactDate(date))}</b><small>${dailyItems.length} ${dailyItems.length === 1 ? "expense" : "expenses"}</small></span><strong>${escapeHtml(moneyText("SGD", dayTotal))}</strong></summary><div>${dailyItems.map((item) => `<article class="expense-row expense-row--grouped">
+      <div><strong>${escapeHtml(item.description)}</strong><span>${expenseCategoryIcon(item.category)} ${escapeHtml(item.category || "Custom")}${item.customCategory ? ` · ${escapeHtml(item.customCategory)}` : ""}${item.note ? ` · ${escapeHtml(item.note)}` : ""}</span>${item.address ? `<a href="${mapsSearch(item.address)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.address)} ↗</a>` : ""}</div>
       <div class="expense-values"><b>${escapeHtml(moneyText(item.originalCurrency, item.originalAmount))}</b><span>${escapeHtml(moneyText("SGD", item.sgdAmount))}</span></div><button type="button" class="expense-delete" data-expense-delete="${escapeHtml(item.id)}" aria-label="Remove ${escapeHtml(item.description)}">×</button>
     </article>`).join("")}</div></details>`;
   }).join("");
@@ -671,8 +857,10 @@ function renderExpenses() {
   root.innerHTML = `<form class="expense-form" id="expense-form">
     <div><label for="expense-date">Date</label><input id="expense-date" name="date" type="date" min="${escapeHtml(state.data.trip.startDate)}" max="${escapeHtml(state.data.trip.endDate)}" required></div>
     <div><label for="expense-description">Expense</label><input id="expense-description" name="description" placeholder="Dinner, tickets, shopping…" required></div>
+    <div><label for="expense-category">Category</label><select id="expense-category" name="category">${expenseCategories.map(([category, icon]) => `<option value="${category}">${icon} ${category}</option>`).join("")}</select></div>
+    <div class="expense-custom-category is-disabled"><label for="expense-custom-category">Custom category</label><input id="expense-custom-category" name="customCategory" maxlength="40" placeholder="Select Custom to edit" disabled></div>
     <div><label for="expense-amount">Amount</label><input id="expense-amount" name="amount" type="number" min="0" step="0.01" inputmode="decimal" required></div>
-    <div><label for="expense-currency">Currency</label><select id="expense-currency" name="currency">${currencies.map((currency) => `<option${currency === "SGD" ? " selected" : ""}>${currency}</option>`).join("")}</select></div>
+    <div><label for="expense-currency">Currency</label><select id="expense-currency" name="currency">${currencies.map((currency, index) => `${index === 12 ? `<option disabled>──────────</option>` : ""}<option${currency === "SGD" ? " selected" : ""}>${currency}</option>`).join("")}</select></div>
     <div class="expense-address"><label for="expense-address">Address or map location</label><input id="expense-address" name="address" placeholder="Optional address or place name"></div>
     <p class="expense-conversion" id="expense-conversion" role="status">Enter an amount to see the SGD estimate.</p>
     <button type="submit">Add expense</button>
@@ -691,13 +879,22 @@ function renderExpenses() {
   };
   form.amount.addEventListener("input", updatePreview);
   form.currency.addEventListener("change", updatePreview);
+  form.category.addEventListener("change", () => {
+    const custom = $(".expense-custom-category", form);
+    const customInput = custom.querySelector("input");
+    const enabled = form.category.value === "Custom";
+    custom.classList.toggle("is-disabled", !enabled);
+    customInput.disabled = !enabled;
+    customInput.required = enabled;
+    customInput.placeholder = enabled ? "Enter a category" : "Select Custom to edit";
+  });
   form.onsubmit = async (event) => {
     event.preventDefault();
     const data = new FormData(form);
     const originalAmount = Number(data.get("amount"));
     const originalCurrency = String(data.get("currency"));
     const conversion = await exchangeRateToSgd(originalCurrency);
-    state.expenses.push({ id: `expense-${Date.now()}`, date: String(data.get("date")), category: "Expense", description: String(data.get("description")), originalAmount, originalCurrency, rateUsed: conversion.rate, sgdAmount: conversion.rate ? Number((originalAmount * conversion.rate).toFixed(2)) : 0, address: String(data.get("address") || ""), note: conversion.source });
+    state.expenses.push({ id: `expense-${Date.now()}`, date: String(data.get("date")), category: String(data.get("category") || "Custom"), customCategory: String(data.get("customCategory") || ""), description: String(data.get("description")), originalAmount, originalCurrency, rateUsed: conversion.rate, sgdAmount: conversion.rate ? Number((originalAmount * conversion.rate).toFixed(2)) : 0, address: String(data.get("address") || ""), note: conversion.source });
     savePersonalState();
     renderExpenses();
   };
@@ -756,9 +953,11 @@ async function loadSharedState() {
   if (todoAdapter?.mode === "local" && !hasLocalTodoSnapshot && !state.todos.length && authoredTodos.length) {
     state.todos = authoredTodos.map((item, index) => ({
       id: String(item.id || `todo-initial-${index + 1}`),
-      text: String(item.text || item.title || "").trim(),
+      heading: String(item.heading || item.title || item.text || "Reminder").trim(),
+      subheading: String(item.subheading || "").trim(),
+      body: String(item.body || "").trim(),
       completed: Boolean(item.completed)
-    })).filter((item) => item.text);
+    })).filter((item) => item.heading);
     await Promise.all(state.todos.map((todo) => todoAdapter.applyChange("todos", todo, "upsert")));
   }
 }
@@ -774,34 +973,48 @@ function saveTodoState() { return Promise.all(state.todos.map((todo) => saveShar
 function renderTodoList() {
   const completed = state.todos.filter((todo) => todo.completed).length;
   $("#todo-progress").textContent = `${completed} / ${state.todos.length}`;
-  $("#todo-list").innerHTML = state.todos.length ? state.todos.map((todo) => `
+  $("#todo-list").innerHTML = state.todos.length ? state.todos.map((todo) => {
+    const heading = todo.heading || todo.text || "Reminder";
+    return `
     <div class="todo-item${todo.completed ? " is-complete" : ""}" data-todo-id="${escapeHtml(todo.id)}">
-      <label>
-        <input type="checkbox" ${todo.completed ? "checked" : ""} aria-label="Complete: ${escapeHtml(todo.text)}">
+      <label class="todo-complete">
+        <input type="checkbox" ${todo.completed ? "checked" : ""} aria-label="Complete: ${escapeHtml(heading)}">
         <span class="todo-check" aria-hidden="true">✓</span>
-        <span class="todo-text">${escapeHtml(todo.text)}</span>
       </label>
-      <button type="button" class="todo-delete" aria-label="Delete: ${escapeHtml(todo.text)}">Delete</button>
-    </div>`).join("") : `<p class="todo-empty">No preparation items yet. Add the first one above.</p>`;
+      <div class="todo-copy">
+        <input class="todo-heading" data-todo-field="heading" value="${escapeHtml(heading)}" maxlength="80" aria-label="Reminder heading" placeholder="Heading">
+        <input class="todo-subheading" data-todo-field="subheading" value="${escapeHtml(todo.subheading || "")}" maxlength="120" aria-label="Reminder subheading" placeholder="Subheading">
+        <textarea class="todo-body" data-todo-field="body" maxlength="300" rows="1" aria-label="Reminder details" placeholder="Take note…">${escapeHtml(todo.body || "")}</textarea>
+      </div>
+      <button type="button" class="todo-delete" aria-label="Delete: ${escapeHtml(heading)}">×</button>
+    </div>`;
+  }).join("") : `<p class="todo-empty">No reminders yet. Add the first one whenever you are ready.</p>`;
 }
 
 function renderTravelPrep() {
   renderTodoList();
-  $("#todo-form").onsubmit = (event) => {
-    event.preventDefault();
-    const input = $("#todo-input");
-    const text = input.value.trim();
-    if (!text) return;
-    state.todos.push({ id: `todo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, text, completed: false });
-    input.value = "";
-    saveSharedChange("todos", state.todos.at(-1)).catch(console.error);
+  const addTodo = (event) => {
+    event?.preventDefault();
+    event?.stopPropagation();
+    const todo = { id: `todo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, heading: "New reminder", subheading: "", body: "", completed: false };
+    state.todos.push(todo);
+    $("#todo-panel").open = true;
+    saveSharedChange("todos", todo).catch(console.error);
     renderTodoList();
+    window.setTimeout(() => {
+      const input = $(`[data-todo-id="${todo.id}"] .todo-heading`);
+      input?.focus(); input?.select();
+    }, 0);
   };
+  $("#todo-add").onclick = addTodo;
+  $("#todo-add-bottom").onclick = addTodo;
   $("#todo-list").onchange = (event) => {
     const item = event.target.closest("[data-todo-id]");
-    if (!item || !event.target.matches("input[type='checkbox']")) return;
+    if (!item) return;
     const todo = state.todos.find((entry) => entry.id === item.dataset.todoId);
-    todo.completed = event.target.checked;
+    if (event.target.matches("input[type='checkbox']")) todo.completed = event.target.checked;
+    else if (event.target.matches("[data-todo-field]")) todo[event.target.dataset.todoField] = event.target.value.trim();
+    else return;
     saveSharedChange("todos", todo).catch(console.error);
     renderTodoList();
   };
@@ -951,6 +1164,8 @@ async function init() {
     window.TRAVEL_PLAN_CONFIG = state.config;
     window.TRAVEL_PLAN_DATA = state.data;
     loadPersonalState();
+    setupMediaLightbox();
+    setupAppointmentDialog();
     document.dispatchEvent(new CustomEvent("travel-data-ready", { detail: state.data }));
     applyModuleConfig();
     if (moduleEnabled("overview")) preloadDefaultRouteMap();

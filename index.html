@@ -8,14 +8,14 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>Japan · Kanto & Chubu 2026–27</title>
-  <link rel="stylesheet" href="styles.css?v=20260912-4">
+  <link rel="stylesheet" href="styles.css?v=20260913-2">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-  <script src="trip-data.js?v=20260912-3" defer></script>
+  <script src="trip-data.js?v=20260913-2" defer></script>
   <script src="runtime-storage.js?v=20260910-2" defer></script>
   <script src="overview-map.js?v=20260910-2" defer></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
-  <script src="route-ui.js?v=20260912-4" defer></script>
-  <script src="app.js?v=20260912-3" defer></script>
+  <script src="route-ui.js?v=20260913-2" defer></script>
+  <script src="app.js?v=20260913-2" defer></script>
   <script src="ticket-pdf-preview.js?v=20260910-2" defer></script>
   <script src="site-navigation.js?v=20260910-2" defer></script>
 </head>
@@ -27,6 +27,7 @@
 
   <nav class="floating-navigation" id="travel-navigation" aria-label="Trip section shortcuts">
     <a href="#drive" data-module="driving" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4m8-4v4M3 10h18m-9 3v4m-2-2h4"/></svg><span>Appointments</span></a>
+    <a href="#prep" data-module="todo" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h11M9 12h11M9 19h11"/><path d="m3 5 1.5 1.5L7 3.5m-4 8L4.5 13 7 10m-4 8 1.5 1.5L7 17"/></svg><span>To-Do</span></a>
     <a href="#route" data-module="overview" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3Z"/><path d="M9 3v15m6-12v15"/></svg><span>The Journey</span></a>
     <a href="#itinerary" data-module="itinerary" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8m-8 4h8m-8 4h5"/></svg><span>Daily Itinerary</span></a>
     <a href="#expenses" id="ledger-navigation-link" data-module="ledger" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h15a2 2 0 0 1 2 2v10H5a2 2 0 0 1-2-2V6a3 3 0 0 1 3-3h12v4"/><path d="M16 12h5v4h-5a2 2 0 0 1 0-4Z"/></svg><span>Spending</span></a>
@@ -52,17 +53,31 @@
     </section>
 
     <section class="section drive-section appointments-section" id="drive" aria-labelledby="drive-title" data-module="driving" hidden>
-      <details class="section-disclosure" id="appointments-panel" open>
+      <details class="section-disclosure" id="appointments-panel">
         <summary>
           <span>
             <span class="section-kicker">BOOKED & TIMED</span>
             <span class="section-title" id="drive-title">Appointments</span>
           </span>
-          <span class="disclosure-meta"><span class="soft-label" id="rental-provider-label">SCHEDULED</span><span class="disclosure-icon" aria-hidden="true">+</span></span>
+          <span class="disclosure-meta"><span class="soft-label" id="rental-provider-label">SCHEDULED</span><button class="summary-action" type="button" data-add-appointment>Add New Appointment</button><span class="disclosure-icon" aria-hidden="true">+</span></span>
         </summary>
         <div class="section-disclosure__body">
           <div id="rental-card"></div>
           <div class="accordion-stack" id="drive-notes"></div>
+          <button class="add-new-button add-new-button--bottom" type="button" data-add-appointment>＋ Add New Appointment</button>
+        </div>
+      </details>
+    </section>
+
+    <section class="section prep-section" id="prep" aria-labelledby="prep-title" data-module="todo" hidden>
+      <details class="section-disclosure" id="todo-panel">
+        <summary>
+          <span><span class="section-kicker">REMINDERS</span><span class="section-title" id="prep-title">To-Do / Take Note</span></span>
+          <span class="disclosure-meta"><span class="soft-label" id="todo-progress">0 / 0</span><button class="summary-action" type="button" id="todo-add">Add New</button><span class="disclosure-icon" aria-hidden="true">+</span></span>
+        </summary>
+        <div class="section-disclosure__body">
+          <div class="todo-list" id="todo-list"></div>
+          <button class="add-new-button add-new-button--bottom" type="button" id="todo-add-bottom">＋ Add New</button>
         </div>
       </details>
     </section>
@@ -90,21 +105,6 @@
       <div class="timeline" id="timeline"></div>
     </section>
 
-    <section class="section prep-section" id="prep" aria-labelledby="prep-title" data-module="todo" hidden>
-      <div class="section-heading">
-        <div>
-          <p class="section-kicker">BEFORE WE GO</p>
-          <h2 id="prep-title">Before You Go</h2>
-        </div>
-        <span class="soft-label" id="todo-progress">0 / 0</span>
-      </div>
-      <form class="todo-form" id="todo-form">
-        <input id="todo-input" type="text" maxlength="80" placeholder="Add a preparation item" aria-label="Preparation item">
-        <button type="submit">Add</button>
-      </form>
-      <div class="todo-list" id="todo-list"></div>
-    </section>
-
     <section class="section spending-section" id="expenses" aria-labelledby="expenses-title" data-module="ledger" hidden>
       <details class="section-disclosure" id="spending-panel" open>
         <summary>
@@ -112,7 +112,7 @@
             <span class="section-kicker">EXPENSES</span>
             <span class="section-title" id="expenses-title">Spending</span>
           </span>
-          <span class="disclosure-meta"><span class="soft-label" id="spending-total">SGD 0.00</span><span class="disclosure-icon" aria-hidden="true">+</span></span>
+          <span class="disclosure-meta spending-total-wrap"><small>Total</small><span class="soft-label" id="spending-total">SGD 0.00</span><span class="disclosure-icon" aria-hidden="true">+</span></span>
         </summary>
         <div class="section-disclosure__body" id="spending-root"></div>
       </details>
@@ -138,6 +138,30 @@
       <button type="button" id="ticket-dialog-close" aria-label="Close ticket details">Close</button>
     </header>
     <div class="ticket-dialog__body" id="ticket-dialog-body"></div>
+  </dialog>
+
+  <dialog class="appointment-dialog" id="appointment-dialog" aria-labelledby="appointment-dialog-title">
+    <form method="dialog" id="appointment-form">
+      <header><div><span>NEW BOOKING</span><h2 id="appointment-dialog-title">Add New Appointment</h2></div><button type="button" data-close-appointment aria-label="Close">×</button></header>
+      <div class="appointment-form-grid">
+        <label>Type<select name="type"><option>Hotel</option><option>Restaurant</option><option>Activity</option><option>Car rental</option><option>Other</option></select></label>
+        <label>Date<input name="date" type="date" required></label>
+        <label class="span-all">Title<input name="title" maxlength="100" required placeholder="Reservation name"></label>
+        <label>Start / Check-in<input name="start" placeholder="15:00"></label>
+        <label>End / Check-out<input name="end" placeholder="11:00"></label>
+        <label class="span-all">Location<input name="location" maxlength="120" placeholder="Area or venue"></label>
+        <label class="span-all">Address<input name="address" maxlength="180" placeholder="Google Maps address"></label>
+        <label>Booking number<input name="booking" maxlength="80"></label>
+        <label>Image link<input name="attachmentUrl" type="url" placeholder="https://…"></label>
+        <label class="span-all attachment-file-label">Screenshot / image<input name="attachmentFile" type="file" accept="image/*"></label>
+      </div>
+      <footer><button type="button" data-close-appointment>Cancel</button><button type="submit" value="save">Save Appointment</button></footer>
+    </form>
+  </dialog>
+
+  <dialog class="media-lightbox" id="media-lightbox" aria-label="Image preview">
+    <button type="button" id="media-lightbox-close" aria-label="Close image preview">×</button>
+    <img id="media-lightbox-image" alt="Uploaded travel memory">
   </dialog>
 
   <div class="place-map-overlay" id="place-map" hidden>

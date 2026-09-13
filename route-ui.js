@@ -8,9 +8,14 @@ const transportNames = {
   hike: "Hike", walk: "Walk", return: "Return", "rental-car": "Rental car",
   boat: "Boat", ferry: "Ferry", flight: "Flight", transfer: "Transfer"
 };
+const journeyColors = [
+  "#6f8190", "#9a765c", "#728263", "#a85e55", "#4f7891", "#846b91",
+  "#708b82", "#aa7b52", "#657899", "#887463", "#7a6b8d", "#5f8589",
+  "#9b645f", "#6e8568", "#8c704f", "#607b91", "#7e6a78"
+];
 
 function mapRouteDefinitions(source) {
-  return routeLayersFor(source).map(({ day, color }) => ({ day, color }));
+  return routeLayersFor(source).map(({ day }, index) => ({ day, color: journeyColors[index % journeyColors.length] }));
 }
 
 function dailyMapLayoutFor(source, dayNumber) {
@@ -112,12 +117,29 @@ function travelMapMarkup(source, route) {
   const layout = route && dailyMapLayoutFor(source, route.day);
   const placeLayers = placeLayersFor(source);
   const visiblePlaceIds = route && layout ? layout.places : (source.overviewPlaceIds || placeLayers.map((place) => place.id));
-  const mapNote = route ? `Showing Day ${day.day} locations only` : "Accurate geographic overview of all trip locations";
+  const mapNote = route ? `Day ${day.day} · ${formatFullCompactDate(day.date)}` : "Kanto & Chubu · 17-day overview";
   window.setTimeout(() => initializeGeographicMap(id, source, visiblePlaceIds, route), 0);
   return `<div class="travel-map-block ${route ? "is-daily" : "is-overview"}" ${route ? `style="--route-color:${route.color}"` : ""}>
-    <div class="accurate-map" id="${id}" role="application" aria-label="${route ? `Day ${day.day}` : "Trip overview"} interactive map"><p>Loading interactive map…</p></div>
+    <div class="journey-map-layout">
+      <div class="accurate-map handdrawn-map" id="${id}" role="application" aria-label="${route ? `Day ${day.day}` : "Trip overview"} interactive illustrated map"><p>Painting the journey map…</p></div>
+      ${mapLegendMarkup(route)}
+    </div>
     <div class="map-utility"><span>${escapeHtml(mapNote)} · Pinch or use + / − to zoom</span><button type="button" data-fit-map>Reset view</button></div>
   </div>`;
+}
+
+function mapLegendMarkup(route) {
+  const routes = route ? [route] : mapRoutes;
+  const rows = routes.map((item) => {
+    const day = state.data.days.find((candidate) => candidate.day === item.day);
+    const [, month, date] = day?.date?.split("-") || [];
+    return day ? `<li><i style="--legend-color:${item.color}"></i><span>${escapeHtml(`${date}/${month}`)}</span></li>` : "";
+  }).join("");
+  return `<aside class="map-legend" aria-label="Map legend">
+    <div class="map-legend__icons"><span><i class="legend-place legend-place--hotel">${placeCategoryIcon("hotel")}</i>Hotel</span><span><i class="legend-place legend-place--attraction">${placeCategoryIcon("attraction")}</i>Attraction</span><span><i class="legend-place legend-place--restaurant">${placeCategoryIcon("noodles")}</i>Restaurant</span></div>
+    <div class="map-legend__lines"><span><i class="legend-line is-solid"></i>Hotel change</span><span><i class="legend-line is-dotted"></i>Local stops</span></div>
+    <ul class="map-date-legend">${rows}</ul>
+  </aside>`;
 }
 
 function initializeGeographicMap(id, source, visiblePlaceIds, route) {
@@ -131,12 +153,28 @@ function initializeGeographicMap(id, source, visiblePlaceIds, route) {
     return;
   }
   activeGeographicMap?.remove();
-  const map = window.L.map(element, { zoomControl: true, scrollWheelZoom: true, zoomSnap: .5, zoomDelta: .5 });
+  element.replaceChildren();
+  const regionalBounds = window.L.latLngBounds([[34.72, 136.45], [37.02, 140.12]]);
+  const map = window.L.map(element, {
+    zoomControl: true, scrollWheelZoom: true, zoomSnap: .5, zoomDelta: .5,
+    minZoom: 6.5, maxZoom: 12, maxBounds: regionalBounds.pad(.08), maxBoundsViscosity: .8,
+    attributionControl: false
+  });
   activeGeographicMap = map;
-  window.L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-  }).addTo(map);
+  element.insertAdjacentHTML("beforeend", '<span class="map-paper-label" aria-hidden="true">KANTO · CHUBU</span>');
+  const land = [[37.0,136.5],[37.02,137.18],[36.93,137.95],[36.98,138.74],[36.75,139.42],[36.34,140.06],[35.76,140.12],[35.18,139.86],[34.76,139.16],[34.72,138.28],[34.8,137.26],[35.08,136.53],[35.7,136.46],[36.4,136.48]];
+  const reliefLand = land.map(([lat,lng]) => [lat - .035,lng + .025]);
+  window.L.polygon(reliefLand, { className: "handdrawn-land-relief", color: "#abb19e", weight: 3, opacity: .45, fillColor: "#b9b9a8", fillOpacity: .58, interactive: false }).addTo(map);
+  window.L.polygon(land, { className: "handdrawn-land", color: "#a5ae99", weight: 2, opacity: .68, fillColor: "#f2f0e5", fillOpacity: .98, interactive: false }).addTo(map);
+  [[36.65,137.45,36000],[36.35,138.15,46000],[35.95,138.7,38000],[35.35,137.5,33000]].forEach(([lat,lng,radius]) => {
+    window.L.circle([lat,lng], { className: "watercolor-hill", radius, color: "transparent", fillColor: "#85967c", fillOpacity: .1, interactive: false }).addTo(map);
+  });
+  window.L.polygon([[35.38,138.55],[35.28,138.72],[35.2,138.58]], { className: "handdrawn-mountain", color: "#9c8874", weight: 2, fillColor: "#d9cbbc", fillOpacity: .45, interactive: false }).addTo(map);
+  window.L.circle([35.21,139.0], { className: "watercolor-lake", radius: 12000, color: "#91a9ad", weight: 1.5, fillColor: "#cbdcdf", fillOpacity: .5, interactive: false }).addTo(map);
+  [[35.32,139.55,"Kamakura"],[36.14,137.25,"Takayama"],[36.26,136.9,"Shirakawa-go"],[36.56,136.66,"Kanazawa"]].forEach(([lat,lng,label]) => {
+    const icon = window.L.divIcon({ className: "regional-map-label", html: `<span>${escapeHtml(label)}</span>`, iconSize: [84,18], iconAnchor: [42,9] });
+    window.L.marker([lat,lng], { icon, interactive: false }).addTo(map);
+  });
   const coordinates = places.map((place) => [Number(place.geo.lat), Number(place.geo.lng)]);
   places.forEach((place) => {
     const [label, query] = placeOptions(source, place.id)[0];
@@ -146,16 +184,37 @@ function initializeGeographicMap(id, source, visiblePlaceIds, route) {
       .addTo(map)
       .bindPopup(`<strong>${escapeHtml(label)}</strong><br><a href="${mapsSearch(query)}" target="_blank" rel="noopener noreferrer">Open in Google Maps ↗</a>`);
   });
+  const routesToDraw = route ? [route] : mapRoutes;
+  routesToDraw.forEach((routeItem) => {
+    const definition = routeLayersFor(source).find((item) => item.day === routeItem.day);
+    const routePlaces = (definition?.placeIds || []).map((placeId) => placeLayersFor(source).find((place) => place.id === placeId)).filter((place) => place?.geo);
+    const points = routePlaces.map((place) => [Number(place.geo.lat), Number(place.geo.lng)]);
+    const dayData = state.data.days.find((item) => item.day === routeItem.day);
+    const mode = dayData?.schedule.find((item) => ["drive","walk","hike","train","rail","flight","rental-car"].includes(item.type))?.type || (routeItem.day < 4 ? "walk" : "drive");
+    const transportMarker = (position) => {
+      const icon = window.L.divIcon({ className: "transport-map-marker", html: `<span style="--transport-color:${routeItem.color}" title="Day ${routeItem.day} · ${transportNames[mode] || mode}">${transportIcon(mode)}</span>`, iconSize: [26,26], iconAnchor: [13,13] });
+      window.L.marker(position, { icon, interactive: false }).addTo(map);
+    };
+    if (points.length > 1) {
+      const isHotelTransfer = routePlaces.some((place) => place.category === "hotel") && routePlaces[0].id !== routePlaces.at(-1).id;
+      window.L.polyline(points, { className: "journey-route-line", color: routeItem.color, weight: route ? 4 : 3, opacity: .86, dashArray: isHotelTransfer ? null : "4 8", lineCap: "round" }).addTo(map);
+      const middle = [(points[0][0] + points.at(-1)[0]) / 2, (points[0][1] + points.at(-1)[1]) / 2];
+      transportMarker(middle);
+    } else if (points.length === 1) {
+      window.L.circle(points[0], { className: "journey-local-loop", radius: route ? 9000 : 6000, color: routeItem.color, weight: 3, opacity: .82, fill: false, dashArray: "3 7", interactive: false }).addTo(map);
+      const angle = routeItem.day * 2.399;
+      transportMarker([points[0][0] + Math.sin(angle) * .065, points[0][1] + Math.cos(angle) * .08]);
+    }
+  });
   if (coordinates.length > 1) {
-    window.L.polyline(coordinates, { color: route?.color || "#287b90", weight: route ? 4 : 3, opacity: .72, dashArray: route ? null : "7 8" }).addTo(map);
-    activeGeographicBounds = window.L.latLngBounds(coordinates).pad(.14);
-    map.fitBounds(activeGeographicBounds, { padding: [24, 24], maxZoom: route ? 10 : 7 });
+    activeGeographicBounds = window.L.latLngBounds(coordinates).pad(route ? .32 : .16);
+    map.fitBounds(activeGeographicBounds, { padding: [24, 24], maxZoom: route ? 9.5 : 7.5 });
   } else if (coordinates.length === 1) {
     activeGeographicBounds = window.L.latLngBounds(coordinates);
-    map.setView(coordinates[0], 11);
+    map.setView(coordinates[0], 9);
   } else {
     activeGeographicBounds = null;
-    map.setView([36.3, 138.2], 6);
+    map.fitBounds(regionalBounds, { padding: [20,20] });
   }
   window.setTimeout(() => map.invalidateSize(), 80);
 }

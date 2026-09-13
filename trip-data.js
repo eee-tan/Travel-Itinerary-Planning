@@ -8,7 +8,7 @@ window.TRAVEL_PLAN_DATA_BUNDLE = {
       "flights": true,
       "overview": true,
       "itinerary": true,
-      "todo": false,
+      "todo": true,
       "driving": true,
       "ledger": true
     },
@@ -2156,7 +2156,7 @@ window.TRAVEL_PLAN_DATA_BUNDLE = {
       {
         "id": "expense-minakami",
         "date": "2026-12-20",
-        "category": "Hotel",
+        "category": "Accommodation",
         "description": "Bettei Senjuan",
         "originalCurrency": "JPY",
         "originalAmount": 246600,
@@ -2169,7 +2169,7 @@ window.TRAVEL_PLAN_DATA_BUNDLE = {
       {
         "id": "expense-toyama",
         "date": "2026-12-22",
-        "category": "Hotel",
+        "category": "Accommodation",
         "description": "Mercure Toyama Tonami Resort & Spa",
         "originalCurrency": "JPY",
         "originalAmount": 21600,
@@ -2182,7 +2182,7 @@ window.TRAVEL_PLAN_DATA_BUNDLE = {
       {
         "id": "expense-nagoya",
         "date": "2026-12-25",
-        "category": "Hotel",
+        "category": "Accommodation",
         "description": "ibis Styles Nagoya",
         "originalCurrency": "JPY",
         "originalAmount": 16150,
@@ -2195,7 +2195,7 @@ window.TRAVEL_PLAN_DATA_BUNDLE = {
       {
         "id": "expense-nagano",
         "date": "2026-12-27",
-        "category": "Hotel",
+        "category": "Accommodation",
         "description": "Mercure Nagano Matsushiro Resort & Spa",
         "originalCurrency": "JPY",
         "originalAmount": 26733,
@@ -2208,7 +2208,7 @@ window.TRAVEL_PLAN_DATA_BUNDLE = {
       {
         "id": "expense-hakone",
         "date": "2026-12-29",
-        "category": "Hotel",
+        "category": "Accommodation",
         "description": "Hakone Hotel",
         "originalCurrency": "SGD",
         "originalAmount": 848.81,
@@ -2221,7 +2221,7 @@ window.TRAVEL_PLAN_DATA_BUNDLE = {
       {
         "id": "expense-kawagoe",
         "date": "2026-12-31",
-        "category": "Hotel",
+        "category": "Accommodation",
         "description": "Kawagoe Tobu Hotel",
         "originalCurrency": "SGD",
         "originalAmount": 560.99,
