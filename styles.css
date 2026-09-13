@@ -705,30 +705,48 @@ button:focus-visible,a:focus-visible {outline:2px solid var(--lake);outline-offs
 
 /* Precision refinement: unified disclosure states and fixed ledger geometry. */
 .disclosure-icon,.day-chevron,.accordion summary::after,.expense-day > summary::after,.ticket-details > summary::after {
-  width: 30px; height: 30px; flex: 0 0 30px; padding: 0; display: grid; place-items: center;
+  width: 32px; height: 32px; min-width: 32px; min-height: 32px; flex: 0 0 32px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
   border: 1px solid var(--line); border-radius: 50%; color: var(--lake); background: rgba(255,255,255,.56);
-  font-family: Arial,sans-serif; font-size: 0; font-weight: 700; line-height: 1; transform: none; transition: background .18s ease;
+  font-size: 0; line-height: 1; transform: none; transition: background .18s ease;
 }
 .disclosure-icon::before,.day-chevron::before,.accordion summary::after,.expense-day > summary::after,.ticket-details > summary::after {
-  content: "^"; font-size: 18px; line-height: 1; transform: translateY(3px);
+  content: ""; width: 9px; height: 6px; flex: 0 0 auto; background: currentColor;
+  clip-path: polygon(0 0,100% 0,50% 100%);
 }
 .section-disclosure[open] .disclosure-icon::before,.day-toggle[aria-expanded="true"] .day-chevron::before,.accordion[open] summary::after,.expense-day[open] > summary::after,.ticket-details[open] > summary::after {
-  content: "˅"; transform: translateY(-2px);
+  clip-path: polygon(0 100%,100% 100%,50% 0);
 }
 .section-disclosure[open] .disclosure-icon,.day-toggle[aria-expanded="true"] .day-chevron { transform: none; background: #edf5f3; }
 .expense-day > summary::after { margin-left: 2px; }
 .expense-day > summary strong { margin-left: auto; }
 .ticket-details > summary { gap: 8px; }
 
-.expense-form { grid-template-columns: repeat(2,minmax(0,1fr)); align-items: end; }
-.expense-form > div { min-width: 0; }
-.expense-form input,.expense-form select { width: 100%; height: 42px; min-height: 42px; padding: 0 10px; border-width: 1px; border-radius: 9px; appearance: auto; }
+.expense-form { width: 100%; max-width: 100%; grid-template-columns: repeat(2,minmax(0,1fr)); align-items: end; box-sizing: border-box; overflow: hidden; }
+.expense-form * { box-sizing: border-box; }
+.expense-form > div { width: 100%; max-width: 100%; min-width: 0; }
+.expense-form input,.expense-form select { display: block; width: 100%; max-width: 100%; min-width: 0; height: 42px; min-height: 42px; padding: 0 10px; border-width: 1px; border-radius: 9px; appearance: auto; }
+.expense-form input[type="date"] { width: 100%; max-width: 100%; min-width: 0; -webkit-appearance: none; appearance: none; }
 .expense-custom-category { opacity: 1; transition: opacity .18s ease; }
 .expense-custom-category.is-disabled { opacity: .52; }
 .expense-custom-category input:disabled { color: #85908d; border-color: #dce2df; background: #e9ede9; cursor: not-allowed; }
 
 @media (max-width: 699px) {
-  .expense-form { grid-template-columns: 1fr; }
+  .summary-action {
+    width: 32px; height: 32px; min-width: 32px; min-height: 32px; flex: 0 0 32px; padding: 0;
+    display: flex; align-items: center; justify-content: center; border-radius: 50%; overflow: hidden; font-size: 0;
+  }
+  .summary-action::before { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; font-size: 17px; line-height: 1; }
+  .day-toggle { grid-template-columns: minmax(0,1fr) 32px; }
+  .day-toggle > span:first-child { min-width: 0; }
+  .day-meta { display: flex; flex-direction: row; align-items: center; gap: 8px; white-space: nowrap; }
+  .day-meta b,.day-meta small { display: inline-flex; margin: 0; align-items: center; line-height: 1.25; }
+  .expense-form { grid-template-columns: minmax(0,1fr); }
+  .expense-form input,.expense-form select,.expense-form > button { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
+  .section-disclosure > summary { min-width: 0; gap: 8px; }
+  .section-disclosure > summary > span:first-child { min-width: 0; }
+  .spending-total-wrap { flex: 0 0 auto; min-width: 0; column-gap: 7px; white-space: nowrap; }
+  .spending-section #spending-total { font-size: clamp(16px,5vw,19px); }
 }
 
 /* Cropped Kanto–Chubu relief map inspired by a floating paper topography. */
