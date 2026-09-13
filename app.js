@@ -462,11 +462,11 @@ function dayCard(day) {
       <button class="day-toggle" type="button" aria-expanded="${expanded}" aria-controls="day-detail-${day.day}">
         <span>
           <span class="day-meta"><b>DAY ${day.day}</b><small>${escapeHtml(formatFullCompactDate(day.date))}${isToday ? " · TODAY" : ""}</small></span>
-          ${ticketSummary}
         </span>
         <span class="day-chevron" aria-hidden="true">+</span>
       </button>
       <label class="day-title-editor"><span class="sr-only">Day ${day.day} title</span><input data-day-title="${escapeHtml(dayKey)}" value="${escapeHtml(state.dayTitles[dayKey] || day.title)}" maxlength="100" aria-label="Edit Day ${day.day} title" title="Click to edit this day title"></label>
+      ${ticketSummary}
       </div>
       <div class="day-detail" id="day-detail-${day.day}" ${expanded ? "" : "hidden"}>
         <ol class="schedule">${schedule}</ol>

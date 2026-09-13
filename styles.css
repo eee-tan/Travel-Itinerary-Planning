@@ -162,10 +162,10 @@ main { overflow: hidden; }
 .route-caption { margin: 12px 4px 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
 
 .timeline { position: relative; display: grid; gap: 0; }
-.timeline::before { content: ""; position: absolute; left: 18px; top: 22px; bottom: 26px; width: 1px; background: var(--line); }
+.timeline::before { content: ""; position: absolute; left: 18px; top: 28px; bottom: 28px; width: 1px; background: var(--line); }
 .day-card { position: relative; padding-left: 48px; }
 .day-card + .day-card { margin-top: 0; }
-.day-dot { position: absolute; left: 12px; top: 25px; z-index: 1; width: 13px; height: 13px; border: 3px solid var(--paper); border-radius: 50%; background: #a5b1ae; box-shadow: 0 0 0 1px #a5b1ae; }
+.day-dot { position: absolute; left: 12px; top: 22px; z-index: 1; width: 13px; height: 13px; border: 3px solid var(--paper); border-radius: 50%; background: #a5b1ae; box-shadow: 0 0 0 1px #a5b1ae; }
 .day-card.is-today .day-dot { background: var(--terracotta); box-shadow: 0 0 0 3px rgba(182,92,58,.18); }
 .day-toggle { width: 100%; min-height: 78px; padding: 15px 4px; border: 0; border-bottom: 1px solid var(--line); background: transparent; text-align: left; display: grid; grid-template-columns: minmax(0,1fr) 32px; gap: 12px; cursor: pointer; }
 .day-toggle > span:first-child { min-width: 0; }
@@ -619,12 +619,14 @@ button:focus-visible,a:focus-visible {outline:2px solid var(--lake);outline-offs
 .media-lightbox img { width: 100%; max-height: calc(90dvh - 20px); object-fit: contain; border-radius: 11px; }
 .media-lightbox button { position: absolute; top: 14px; right: 14px; z-index: 2; width: 38px; height: 38px; border: 0; border-radius: 50%; color: var(--ink); background: rgba(255,255,255,.9); font-size: 20px; }
 
-.day-card-heading { border-bottom: 1px solid var(--line); }
-.day-card-heading .day-toggle { min-height: 52px; padding: 12px 4px 8px; border-bottom: 0; }
-.day-title-editor { display: block; padding: 0 44px 12px 4px; }
+.day-card-heading { position: relative; padding: 12px 4px; display: grid; grid-template-columns: minmax(0,1fr); row-gap: 8px; border-bottom: 0; box-shadow: inset 0 -1px var(--line); }
+.day-card-heading .day-toggle { min-height: 15px; padding: 0; display: block; border-bottom: 0; }
+.day-card-heading .day-chevron { position: absolute; top: 12px; right: 4px; }
+.day-title-editor { display: block; padding: 0 44px 0 0; }
 .day-title-editor input { width: 100%; min-height: 34px; padding: 2px 0; border: 0; border-radius: 7px; color: var(--ink); background: transparent; font-family: inherit; font-size: 17px; font-weight: 740; line-height: 1.3; outline: 1px solid transparent; outline-offset: 2px; }
 .day-title-editor input:hover { outline-color: var(--line); }
 .day-title-editor input:focus { outline-color: #adc7ca; background: white; box-shadow: 0 0 0 3px rgba(40,123,144,.08); }
+.day-card-heading > .day-ticket-summary { justify-self: start; margin: 0 44px 0 0; }
 .schedule-quick-record { min-height: 31px; margin-top: 6px; display: flex; align-items: center; gap: 5px; }
 .schedule-quick-record .schedule-note { min-width: 0; margin-top: 0; flex: 1 1 auto; }
 .schedule-photo-add { width: 30px; height: 30px; flex: 0 0 30px; display: grid; place-items: center; border: 1px solid transparent; border-radius: 7px; color: #82928e; cursor: pointer; }
