@@ -1257,38 +1257,44 @@ body.is-touch-dragging { user-select: none; -webkit-user-select: none; cursor: g
 .poster-route-layer { z-index: 2; overflow: visible; }
 .poster-marker-layer { z-index: 3; }
 .poster-route {
-  fill: none; stroke: var(--day-color); stroke-width: 2.35; stroke-linecap: round; stroke-linejoin: round;
+  fill: none; stroke: #286f86; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round;
   opacity: .88; filter: drop-shadow(0 1px 0 rgba(255,255,255,.92)) drop-shadow(0 1px 1px rgba(37,51,47,.14));
   transition: opacity .18s ease,stroke-width .18s ease; vector-effect: non-scaling-stroke;
 }
 .is-daily .poster-route.is-dimmed,
 .poster-route.is-legend-muted { opacity: .075; stroke-width: 1.6; }
 .poster-route.is-legend-highlighted { opacity: 1; stroke-width: 3.8; }
+.poster-hotel-layer { position: absolute; z-index: 3; inset: 0; pointer-events: none; }
+.poster-hotel-marker {
+  position: absolute; left: var(--left); top: var(--top); width: 23px; height: 23px;
+  transform: translate(-50%,-50%); display: grid; place-items: center;
+  border: 1.5px solid rgba(255,253,247,.96); border-radius: 50%;
+  color: #fffdf7; background: #986d48;
+  box-shadow: 0 2px 5px rgba(47,43,36,.2),inset 0 1px 0 rgba(255,255,255,.3);
+}
+.poster-hotel-marker svg { width: 12px; height: 12px; }
 .poster-map-legend {
-  position: static; width: 100%; padding: 10px 12px; display: grid;
-  grid-template-columns: minmax(0,1fr); align-items: center; gap: 10px;
-  border: 1px solid rgba(91,108,103,.14); border-radius: 13px;
-  color: #4e5b56; background: rgba(255,253,247,.82);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.9),0 4px 12px rgba(37,51,47,.06);
+  position: absolute; z-index: 4; right: 13px; bottom: 13px; width: auto; padding: 9px 11px;
+  display: grid; gap: 7px; border: 1px solid rgba(91,108,103,.14); border-radius: 11px;
+  color: #4e5b56; background: rgba(255,253,247,.9);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9),0 5px 13px rgba(37,51,47,.1);
 }
-.poster-date-legend { display: grid; grid-template-columns: repeat(9,minmax(36px,1fr)); gap: 3px 7px; }
-.poster-date-legend button {
-  min-width: 0; padding: 2px 0; display: flex; align-items: center; gap: 4px;
-  border: 0; border-radius: 3px; color: #5c6965; background: transparent;
-  font: 650 8px/1.2 "Oswald","Arial Narrow",sans-serif; cursor: pointer;
-}
-.poster-date-legend button:hover,
-.poster-date-legend button:focus-visible { color: var(--ink); background: rgba(226,231,224,.65); }
-.poster-date-legend button i { width: 14px; height: 2px; flex: 0 0 14px; border-radius: 2px; background: var(--day-color); }
+.poster-map-legend > span { display: flex; align-items: center; gap: 7px; font: 650 9px/1.2 Georgia,"Times New Roman",serif; white-space: nowrap; }
+.poster-legend-line { width: 28px; flex: 0 0 28px; border-top: 2px solid #286f86; }
+.poster-legend-hotel { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; color: #fffdf7; background: #986d48; }
+.poster-legend-hotel svg { width: 11px; height: 11px; }
 .map-utility { justify-content: flex-start; margin: 6px 1px 12px; font-size: 10px; }
 
 @media (max-width: 699px) {
   .journey-map-layout { padding: 6px; gap: 7px; border-radius: 14px; }
   .journey-map-stage,.poster-map { border-radius: 10px; }
-  .poster-route { stroke-width: 1.55; }
-  .poster-route.is-legend-highlighted { stroke-width: 2.6; }
-  .poster-map-legend { padding: 8px; grid-template-columns: 1fr; gap: 7px; border-radius: 10px; }
-  .poster-date-legend { grid-template-columns: repeat(6,minmax(32px,1fr)); gap: 2px 5px; }
-  .poster-date-legend button { font-size: 7px; }
-  .poster-date-legend button i { width: 11px; flex-basis: 11px; }
+  .poster-route { stroke-width: 2; }
+  .poster-route.is-legend-highlighted { stroke-width: 2.7; }
+  .poster-hotel-marker { width: 16px; height: 16px; border-width: 1px; }
+  .poster-hotel-marker svg { width: 8px; height: 8px; }
+  .poster-map-legend { right: 7px; bottom: 7px; padding: 6px 7px; gap: 5px; border-radius: 8px; }
+  .poster-map-legend > span { gap: 5px; font-size: 6.5px; }
+  .poster-legend-line { width: 20px; flex-basis: 20px; }
+  .poster-legend-hotel { width: 14px; height: 14px; }
+  .poster-legend-hotel svg { width: 8px; height: 8px; }
 }

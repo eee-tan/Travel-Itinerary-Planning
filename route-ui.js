@@ -56,52 +56,46 @@ function posterPoint(geo) {
   };
 }
 
-function organicRoutePath(points) {
+function geographicRoutePath(points) {
   if (points.length < 2) return "";
-  let path = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
-  for (let index = 0; index < points.length - 1; index += 1) {
-    const previous = points[index - 1] || points[index];
-    const start = points[index];
-    const finish = points[index + 1];
-    const next = points[index + 2] || finish;
-    const control1 = { x: start.x + (finish.x - previous.x) / 6, y: start.y + (finish.y - previous.y) / 6 };
-    const control2 = { x: finish.x - (next.x - start.x) / 6, y: finish.y - (next.y - start.y) / 6 };
-    path += ` C ${control1.x.toFixed(1)} ${control1.y.toFixed(1)}, ${control2.x.toFixed(1)} ${control2.y.toFixed(1)}, ${finish.x.toFixed(1)} ${finish.y.toFixed(1)}`;
-  }
-  return path;
+  return points.map((point, index) => `${index ? "L" : "M"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(" ");
 }
 
-const posterRouteWaypoints = {
-  1: [[35.5494,139.7798],[35.6285,139.7397],[35.6762,139.6503]],
-  2: [[35.6762,139.6503],[35.6938,139.7034],[35.7148,139.7967],[35.6812,139.7671]],
-  3: [[35.6762,139.6503],[35.4437,139.6380],[35.3192,139.5467],[35.4437,139.6380],[35.6762,139.6503]],
-  4: [[35.6762,139.6503],[35.8617,139.6455],[36.3224,139.0034],[36.5451,138.8885],[36.7950,138.9680]],
-  5: [[36.7950,138.9680],[36.8370,138.9320],[36.8490,139.0550],[36.7950,138.9680]],
-  6: [[36.7950,138.9680],[37.0436,138.8475],[37.4460,138.8512],[37.9162,139.0364],[37.1478,138.2361],[36.6953,137.2137],[36.5810,136.9630]],
-  7: [[36.5810,136.9630],[36.5613,136.6562],[36.5947,136.6256],[36.5810,136.9630]],
-  8: [[36.5810,136.9630],[36.2606,136.9062],[36.1428,137.2520],[36.5810,136.9630]],
-  9: [[36.5810,136.9630],[36.2606,136.9062],[36.1428,137.2520],[35.7847,137.2394],[35.3912,136.7223],[35.1690,136.8890]],
-  10: [[35.1690,136.8890],[35.3882,136.9394],[35.2899,136.9723],[35.1690,136.8890]],
-  11: [[35.1690,136.8890],[35.4550,137.4121],[35.5149,137.8203],[36.2380,137.9720],[36.5650,138.1970]],
-  12: [[36.5650,138.1970],[36.6513,138.1875],[36.7326,138.4622],[36.5650,138.1970]],
-  13: [[36.5650,138.1970],[36.2380,137.9720],[35.6642,138.5684],[35.1920,139.0260]],
-  14: [[35.1920,139.0260],[35.2440,139.0070],[35.2324,138.9950],[35.2048,139.0228],[35.1920,139.0260]],
-  15: [[35.1920,139.0260],[35.4437,139.3625],[35.6049,139.5037],[35.9060,139.4820]],
-  16: [[35.9060,139.4820],[35.9174,139.4858],[35.9251,139.4721],[35.9060,139.4820]],
-  17: [[35.9060,139.4820],[35.6812,139.7671],[35.6285,139.7397],[35.5494,139.7798]]
-};
+const posterTransferRoutes = [
+  { day: 4, points: [[139.650293,35.676178],[139.618470,35.749149],[139.546461,35.791213],[139.447054,35.908865],[139.383120,35.956658],[139.377153,36.035820],[139.273713,36.108737],[139.141723,36.245414],[139.091183,36.307446],[139.011736,36.467476],[139.032095,36.512396],[139.062980,36.607361],[139.063689,36.667522],[138.976339,36.712120],[138.965710,36.779622],[138.974817,36.793195]] },
+  { day: 6, points: [[138.974817,36.793195],[138.849247,36.887219],[138.802860,36.948977],[138.739377,36.988148],[138.663733,37.043438],[138.608070,37.087129],[138.541282,37.159476],[138.442254,37.155227],[138.266197,37.172802],[138.151460,37.160716],[138.038248,37.121482],[137.911291,37.058806],[137.779079,37.016990],[137.606806,36.972383],[137.448865,36.852899],[137.342775,36.715389],[137.230443,36.646228],[137.090859,36.692917],[136.952358,36.624422],[136.962987,36.580970]] },
+  { day: 9, points: [[136.962987,36.580970],[137.008962,36.552346],[136.991387,36.498453],[136.973558,36.442131],[136.919097,36.401007],[136.868366,36.374067],[136.900284,36.318895],[136.877440,36.223954],[136.910719,36.148709],[136.943347,36.086835],[136.901678,35.998543],[136.876840,35.951668],[136.913675,35.782536],[136.951347,35.731874],[136.936313,35.604171],[136.899444,35.492814],[136.994183,35.445452],[136.993700,35.386298],[136.913822,35.318869],[136.914478,35.174085],[136.888956,35.169134]] },
+  { day: 11, points: [[136.888956,35.169134],[136.942841,35.204176],[137.015809,35.281128],[137.107837,35.332845],[137.188571,35.366482],[137.278066,35.400224],[137.394160,35.454178],[137.512169,35.490478],[137.597117,35.587066],[137.693392,35.697496],[137.682448,35.831430],[137.759482,35.880151],[137.850259,35.992173],[137.935629,36.115071],[137.943057,36.173985],[137.938779,36.231262],[137.923882,36.325178],[138.011641,36.403252],[138.058963,36.481226],[138.098687,36.534648],[138.156626,36.559297],[138.196610,36.565332]] },
+  { day: 13, points: [[138.196610,36.565332],[138.139238,36.544643],[138.196208,36.473954],[138.307017,36.408148],[138.433507,36.342086],[138.465710,36.274356],[138.486148,36.168675],[138.483271,36.094309],[138.493834,36.003241],[138.474598,35.958408],[138.439467,35.925487],[138.433270,35.841449],[138.417576,35.782537],[138.530452,35.663503],[138.573483,35.599234],[138.624780,35.528829],[138.606978,35.477965],[138.571896,35.387448],[138.611367,35.273481],[138.754129,35.239229],[138.874308,35.239382],[138.978755,35.230924],[139.026621,35.192036]] },
+  { day: 15, points: [[139.026621,35.192036],[139.061266,35.214420],[139.132789,35.245246],[139.200153,35.290116],[139.234175,35.353173],[139.291227,35.403708],[139.396003,35.428260],[139.487743,35.512313],[139.599741,35.623492],[139.618470,35.749149],[139.573976,35.767276],[139.508639,35.830582],[139.457451,35.893453],[139.481952,35.906057]] },
+  { day: 17, points: [[139.481952,35.906057],[139.459553,35.893138],[139.508777,35.830643],[139.574114,35.767361],[139.618778,35.749233],[139.614389,35.677429],[139.688187,35.682554],[139.711028,35.628973],[139.752556,35.617252],[139.759867,35.570400],[139.789708,35.547786],[139.783197,35.550973]] }
+];
+
+const posterHotels = [
+  [35.6762,139.6503],[36.7950,138.9680],[36.5810,136.9630],[35.1690,136.8890],
+  [36.5650,138.1970],[35.1920,139.0260],[35.9060,139.4820]
+];
+
+function hotelIconMarkup() {
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 20V9.5m0 6h17V20m-14-4v-5h5a4 4 0 0 1 4 4v1M3.5 19h17"/></svg>';
+}
 
 function posterMapMarkup(source, visiblePlaceIds, selectedRoute) {
-  const routeMarkup = mapRoutes.map((routeItem) => {
-    const points = (posterRouteWaypoints[routeItem.day] || []).map(([lat, lng]) => posterPoint({ lat, lng }));
-    const path = organicRoutePath(points);
-    if (!path) return "";
-    const isActive = !selectedRoute || routeItem.day === selectedRoute.day;
-    return `<path class="poster-route${isActive ? " is-active" : " is-dimmed"}" data-poster-route-day="${routeItem.day}" d="${path}" style="--day-color:${routeItem.color}"/>`;
+  const routeMarkup = posterTransferRoutes.map((transfer) => {
+    const points = transfer.points.map(([lng, lat]) => posterPoint({ lat, lng }));
+    const path = geographicRoutePath(points);
+    const isActive = !selectedRoute || transfer.day === selectedRoute.day;
+    return `<path class="poster-route${isActive ? " is-active" : " is-dimmed"}" data-poster-route-day="${transfer.day}" d="${path}"/>`;
+  }).join("");
+  const hotels = posterHotels.map(([lat, lng]) => {
+    const point = posterPoint({ lat, lng });
+    return `<span class="poster-hotel-marker" style="--left:${(point.x / posterMap.width * 100).toFixed(3)}%;--top:${(point.y / posterMap.height * 100).toFixed(3)}%">${hotelIconMarkup()}</span>`;
   }).join("");
   return `<div class="poster-map" role="group" aria-label="${selectedRoute ? `Day ${selectedRoute.day}` : "17-day route overview"} on a Kanto and Chubu relief map">
     <img src="assets/maps/kanto-chubu-relief-clean.png?v=20260914-2" alt="" draggable="false">
     <svg class="poster-route-layer" viewBox="0 0 ${posterMap.width} ${posterMap.height}" aria-hidden="true">${routeMarkup}</svg>
+    <div class="poster-hotel-layer" aria-hidden="true">${hotels}</div>
+    ${posterLegendMarkup()}
   </div>`;
 }
 
@@ -116,21 +110,15 @@ function travelMapMarkup(source, route) {
       <div class="journey-map-stage">
         ${posterMapMarkup(source, visiblePlaceIds, route)}
       </div>
-      ${posterLegendMarkup(route)}
     </div>
     <div class="map-utility"><span>${escapeHtml(mapNote)} · Fixed illustrated route poster</span></div>
   </div>`;
 }
 
-function posterLegendMarkup(route) {
-  const routes = route ? [route] : mapRoutes;
-  const dates = routes.map((routeItem) => {
-    const routeDay = state.data.days.find((candidate) => candidate.day === routeItem.day);
-    const [, month, date] = routeDay?.date?.split("-") || [];
-    return routeDay ? `<button type="button" data-poster-legend-day="${routeItem.day}" style="--day-color:${routeItem.color}" aria-label="Highlight Day ${routeItem.day}, ${date}/${month}"><i></i><span>${date}/${month}</span></button>` : "";
-  }).join("");
+function posterLegendMarkup() {
   return `<aside class="poster-map-legend" aria-label="Map legend">
-    <div class="poster-date-legend" aria-label="Route colors by date">${dates}</div>
+    <span><i class="poster-legend-line"></i>Hotel change</span>
+    <span><i class="poster-legend-hotel">${hotelIconMarkup()}</i>Hotel</span>
   </aside>`;
 }
 
