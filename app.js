@@ -8,6 +8,8 @@ const state = {
   dayNotes: {},
   dayPhotos: {},
   dayTitles: {},
+  itinerarySchedule: {},
+  editingItinerary: false,
   appointmentMedia: {},
   customAppointments: [],
   expenses: []
@@ -424,8 +426,8 @@ function dayCard(day) {
   const today = todayForTrip();
   const isToday = day.date === today;
   const expanded = state.expandedDay === day.day;
-  const dayKey = day.id || `day-${String(day.day).padStart(2, "0")}`;
-  const schedule = day.schedule.map((item) => {
+  const dayKey = itineraryDayKey(day);
+  const schedule = (day.schedule || []).map((item) => {
     const noteKey = `${dayKey}:${item.id}`;
     const photo = state.dayPhotos[noteKey] || "";
     const destinations = navigationDestinations(item);
@@ -434,10 +436,10 @@ function dayCard(day) {
     `).join("");
     const scheduleTickets = ticketsForSchedule(day, item).map(inlineTicketMarkup).join("");
     return `
-      <li class="schedule-item">
-        <span class="schedule-time">${escapeHtml(item.time)}</span>
+      <li class="schedule-item${state.editingItinerary ? " is-editable" : ""}" data-schedule-id="${escapeHtml(item.id)}" data-source-day="${day.day}" ${state.editingItinerary ? 'draggable="true"' : ""}>
+        ${state.editingItinerary ? `<span class="schedule-drag-handle" aria-hidden="true" title="Drag to another day">⋮⋮</span><input class="schedule-time schedule-time-editor" data-schedule-field="time" value="${escapeHtml(item.time)}" maxlength="24" aria-label="Edit time">` : `<span class="schedule-time">${escapeHtml(item.time)}</span>`}
         <div class="schedule-content">
-          <div class="schedule-text">${escapeHtml(item.text)}</div>
+          ${state.editingItinerary ? `<textarea class="schedule-text schedule-text-editor" data-schedule-field="text" rows="2" maxlength="300" aria-label="Edit itinerary item">${escapeHtml(item.text)}</textarea>` : `<div class="schedule-text">${escapeHtml(item.text)}</div>`}
           ${scheduleTickets}
           ${mapLinks ? `<div class="schedule-map-links">${mapLinks}</div>` : ""}
           <div class="schedule-quick-record">
@@ -456,7 +458,7 @@ function dayCard(day) {
     ? `<span class="day-ticket-summary ${pendingTicketCount ? "has-pending" : "is-complete"}">${pendingTicketCount ? `${pendingTicketCount} ticket(s) pending` : "Tickets ready"}</span>`
     : "";
   return `
-    <article class="day-card${isToday ? " is-today" : ""}" data-day="${day.day}">
+    <article class="day-card${isToday ? " is-today" : ""}${state.editingItinerary ? " is-editing" : ""}" data-day="${day.day}">
       <span class="day-dot" aria-hidden="true"></span>
       <div class="day-card-heading">
       <button class="day-toggle" type="button" aria-expanded="${expanded}" aria-controls="day-detail-${day.day}">
@@ -465,9 +467,10 @@ function dayCard(day) {
         </span>
         <span class="day-chevron" aria-hidden="true">+</span>
       </button>
-      <label class="day-title-editor"><span class="sr-only">Day ${day.day} title</span><input data-day-title="${escapeHtml(dayKey)}" value="${escapeHtml(state.dayTitles[dayKey] || day.title)}" maxlength="100" aria-label="Edit Day ${day.day} title" title="Click to edit this day title"></label>
+      <label class="day-title-editor"><span class="sr-only">Day ${day.day} title</span><input data-day-title="${escapeHtml(dayKey)}" value="${escapeHtml(state.dayTitles[dayKey] || day.title)}" maxlength="100" aria-label="${state.editingItinerary ? "Edit" : "Locked"} Day ${day.day} title" ${state.editingItinerary ? "" : 'readonly aria-readonly="true"'}></label>
       ${ticketSummary}
       </div>
+      ${state.editingItinerary ? `<div class="day-drop-zone" data-drop-day="${day.day}">Drop itinerary here</div>` : ""}
       <div class="day-detail" id="day-detail-${day.day}" ${expanded ? "" : "hidden"}>
         <ol class="schedule">${schedule}</ol>
         ${costs ? `<div class="costs">${costs}</div>` : ""}
@@ -552,6 +555,18 @@ function renderTimeline() {
   const today = currentTripDay();
   if (state.expandedDay === null) state.expandedDay = today;
   $("#day-count").textContent = `${state.data.days.length} DAYS`;
+  const editButton = $("#itinerary-edit");
+  editButton.textContent = state.editingItinerary ? "Done" : "Edit";
+  editButton.setAttribute("aria-pressed", String(state.editingItinerary));
+  editButton.onclick = () => {
+    state.editingItinerary = !state.editingItinerary;
+    if (!state.editingItinerary) {
+      captureItinerarySchedule();
+      savePersonalState();
+    }
+    renderTimeline();
+  };
+  $("#itinerary").classList.toggle("is-editing", state.editingItinerary);
   $("#timeline").innerHTML = state.data.days.map(dayCard).join("");
   $("#timeline").onclick = (event) => {
     const mediaButton = event.target.closest("[data-media-src]");
@@ -586,6 +601,7 @@ function renderTimeline() {
   $("#timeline").onchange = (event) => {
     const titleInput = event.target.closest("[data-day-title]");
     if (titleInput) {
+      if (!state.editingItinerary) return;
       const day = state.data.days.find((item) => (item.id || `day-${String(item.day).padStart(2, "0")}`) === titleInput.dataset.dayTitle);
       const title = titleInput.value.trim();
       if (day) {
@@ -593,6 +609,19 @@ function renderTimeline() {
         if (title && title !== day.title) state.dayTitles[dayKey] = title;
         else delete state.dayTitles[dayKey];
         titleInput.value = state.dayTitles[dayKey] || day.title;
+        savePersonalState();
+      }
+      return;
+    }
+    const scheduleInput = event.target.closest("[data-schedule-field]");
+    if (scheduleInput && state.editingItinerary) {
+      const scheduleItem = scheduleInput.closest("[data-schedule-id]");
+      const day = state.data.days.find((item) => item.day === Number(scheduleItem?.dataset.sourceDay));
+      const item = day?.schedule?.find((entry) => String(entry.id) === scheduleItem?.dataset.scheduleId);
+      if (item) {
+        item[scheduleInput.dataset.scheduleField] = scheduleInput.value.trim() || "TBD";
+        scheduleInput.value = item[scheduleInput.dataset.scheduleField];
+        captureItinerarySchedule();
         savePersonalState();
       }
       return;
@@ -627,6 +656,52 @@ function renderTimeline() {
   $("#timeline").onkeydown = (event) => {
     const noteInput = event.target.closest("[data-schedule-note]");
     if (noteInput && event.key === "Enter") { event.preventDefault(); noteInput.blur(); }
+  };
+  $("#timeline").ondragstart = (event) => {
+    const item = event.target.closest(".schedule-item[data-schedule-id]");
+    if (!state.editingItinerary || !item) { event.preventDefault(); return; }
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", JSON.stringify({ day: Number(item.dataset.sourceDay), id: item.dataset.scheduleId }));
+    item.classList.add("is-dragging");
+  };
+  $("#timeline").ondragend = () => {
+    $$(".is-dragging,.is-drag-target", $("#timeline")).forEach((element) => element.classList.remove("is-dragging", "is-drag-target"));
+  };
+  $("#timeline").ondragover = (event) => {
+    const card = event.target.closest(".day-card");
+    if (!state.editingItinerary || !card) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    $$(".is-drag-target", $("#timeline")).forEach((element) => element.classList.remove("is-drag-target"));
+    card.classList.add("is-drag-target");
+  };
+  $("#timeline").ondrop = (event) => {
+    const targetCard = event.target.closest(".day-card");
+    if (!state.editingItinerary || !targetCard) return;
+    event.preventDefault();
+    let dragged;
+    try { dragged = JSON.parse(event.dataTransfer.getData("text/plain")); } catch { return; }
+    const sourceDay = state.data.days.find((day) => day.day === Number(dragged.day));
+    const targetDay = state.data.days.find((day) => day.day === Number(targetCard.dataset.day));
+    if (!sourceDay || !targetDay || sourceDay === targetDay) return;
+    const sourceIndex = sourceDay.schedule.findIndex((item) => String(item.id) === String(dragged.id));
+    if (sourceIndex < 0) return;
+    const [moved] = sourceDay.schedule.splice(sourceIndex, 1);
+    targetDay.schedule.push(moved);
+    const oldNoteKey = `${itineraryDayKey(sourceDay)}:${moved.id}`;
+    const newNoteKey = `${itineraryDayKey(targetDay)}:${moved.id}`;
+    if (Object.prototype.hasOwnProperty.call(state.dayNotes, oldNoteKey)) {
+      state.dayNotes[newNoteKey] = state.dayNotes[oldNoteKey];
+      delete state.dayNotes[oldNoteKey];
+    }
+    if (Object.prototype.hasOwnProperty.call(state.dayPhotos, oldNoteKey)) {
+      state.dayPhotos[newNoteKey] = state.dayPhotos[oldNoteKey];
+      delete state.dayPhotos[oldNoteKey];
+    }
+    state.expandedDay = targetDay.day;
+    captureItinerarySchedule();
+    savePersonalState();
+    renderTimeline();
   };
 }
 
@@ -787,10 +862,27 @@ function setupAppointmentDialog() {
 
 function personalStorageKey(type) { return `travel-plan:${type}:${state.data.metadata.tripId}`; }
 
+function itineraryDayKey(day) {
+  return day.id || `day-${String(day.day).padStart(2, "0")}`;
+}
+
+function captureItinerarySchedule() {
+  state.itinerarySchedule = Object.fromEntries(state.data.days.map((day) => [itineraryDayKey(day), structuredClone(day.schedule || [])]));
+}
+
+function applySavedItinerarySchedule() {
+  state.data.days.forEach((day) => {
+    const saved = state.itinerarySchedule[itineraryDayKey(day)];
+    if (Array.isArray(saved)) day.schedule = structuredClone(saved);
+  });
+}
+
 function loadPersonalState() {
   try { state.dayNotes = JSON.parse(localStorage.getItem(personalStorageKey("day-notes")) || "{}"); } catch { state.dayNotes = {}; }
   try { state.dayPhotos = JSON.parse(localStorage.getItem(personalStorageKey("day-photos")) || "{}"); } catch { state.dayPhotos = {}; }
   try { state.dayTitles = JSON.parse(localStorage.getItem(personalStorageKey("day-titles")) || "{}"); } catch { state.dayTitles = {}; }
+  try { state.itinerarySchedule = JSON.parse(localStorage.getItem(personalStorageKey("itinerary-schedule")) || "{}"); } catch { state.itinerarySchedule = {}; }
+  applySavedItinerarySchedule();
   try { state.appointmentMedia = JSON.parse(localStorage.getItem(personalStorageKey("appointment-media")) || "{}"); } catch { state.appointmentMedia = {}; }
   try { state.customAppointments = JSON.parse(localStorage.getItem(personalStorageKey("custom-appointments")) || "[]"); } catch { state.customAppointments = []; }
   if (!Array.isArray(state.customAppointments)) state.customAppointments = [];
@@ -804,6 +896,7 @@ function savePersonalState() {
   localStorage.setItem(personalStorageKey("day-notes"), JSON.stringify(state.dayNotes));
   localStorage.setItem(personalStorageKey("day-photos"), JSON.stringify(state.dayPhotos));
   localStorage.setItem(personalStorageKey("day-titles"), JSON.stringify(state.dayTitles));
+  localStorage.setItem(personalStorageKey("itinerary-schedule"), JSON.stringify(state.itinerarySchedule));
   localStorage.setItem(personalStorageKey("appointment-media"), JSON.stringify(state.appointmentMedia));
   localStorage.setItem(personalStorageKey("custom-appointments"), JSON.stringify(state.customAppointments));
   localStorage.setItem(personalStorageKey("expenses"), JSON.stringify(state.expenses));
@@ -970,25 +1063,60 @@ async function saveSharedChange(collection, value, op = "upsert") {
 
 function saveTodoState() { return Promise.all(state.todos.map((todo) => saveSharedChange("todos", todo))); }
 
+function normalizePreparationTopic(todo, index = 0) {
+  todo = todo && typeof todo === "object" ? todo : {};
+  const legacyText = String(todo.subheading || todo.text || "").trim();
+  const legacyNote = String(todo.body || "").trim();
+  const items = Array.isArray(todo.items) ? todo.items : (legacyText || legacyNote || todo.completed ? [{
+    id: `${todo.id || `prep-${index + 1}`}-item-1`,
+    text: legacyText || "Preparation item",
+    note: legacyNote,
+    completed: Boolean(todo.completed)
+  }] : []);
+  return {
+    id: String(todo.id || `prep-${Date.now()}-${index}`),
+    heading: String(todo.heading || todo.title || "New preparation").trim() || "New preparation",
+    note: String(todo.note || ""),
+    expanded: todo.expanded !== false,
+    items: items.map((item, itemIndex) => ({
+      id: String(item.id || `${todo.id || `prep-${index + 1}`}-item-${itemIndex + 1}`),
+      text: String(item.text || item.heading || "Preparation item"),
+      note: String(item.note || item.body || ""),
+      completed: Boolean(item.completed)
+    }))
+  };
+}
+
 function renderTodoList() {
-  const completed = state.todos.filter((todo) => todo.completed).length;
-  $("#todo-progress").textContent = `${completed} / ${state.todos.length}`;
-  $("#todo-list").innerHTML = state.todos.length ? state.todos.map((todo) => {
-    const heading = todo.heading || todo.text || "Reminder";
+  state.todos = state.todos.map(normalizePreparationTopic);
+  const allItems = state.todos.flatMap((topic) => topic.items);
+  const completed = allItems.filter((item) => item.completed).length;
+  $("#todo-progress").textContent = `${completed} / ${allItems.length}`;
+  $("#todo-list").innerHTML = state.todos.length ? state.todos.map((topic) => {
     return `
-    <div class="todo-item${todo.completed ? " is-complete" : ""}" data-todo-id="${escapeHtml(todo.id)}">
-      <label class="todo-complete">
-        <input type="checkbox" ${todo.completed ? "checked" : ""} aria-label="Complete: ${escapeHtml(heading)}">
-        <span class="todo-check" aria-hidden="true">✓</span>
-      </label>
-      <div class="todo-copy">
-        <input class="todo-heading" data-todo-field="heading" value="${escapeHtml(heading)}" maxlength="80" aria-label="Reminder heading" placeholder="Heading">
-        <input class="todo-subheading" data-todo-field="subheading" value="${escapeHtml(todo.subheading || "")}" maxlength="120" aria-label="Reminder subheading" placeholder="Subheading">
-        <textarea class="todo-body" data-todo-field="body" maxlength="300" rows="1" aria-label="Reminder details" placeholder="Take note…">${escapeHtml(todo.body || "")}</textarea>
+    <article class="prep-topic" data-todo-id="${escapeHtml(topic.id)}">
+      <header class="prep-topic__header">
+        <button class="prep-topic-toggle" type="button" aria-expanded="${topic.expanded}" aria-label="${topic.expanded ? "Collapse" : "Expand"} ${escapeHtml(topic.heading)}"><span aria-hidden="true"></span></button>
+        <input class="prep-topic-heading" data-todo-field="heading" value="${escapeHtml(topic.heading)}" maxlength="100" aria-label="Preparation heading" placeholder="Preparation heading">
+        <button type="button" class="todo-delete" aria-label="Delete ${escapeHtml(topic.heading)}">×</button>
+      </header>
+      <div class="prep-topic__body" ${topic.expanded ? "" : "hidden"}>
+        <input class="prep-topic-note" data-todo-field="note" value="${escapeHtml(topic.note)}" maxlength="220" aria-label="Note for ${escapeHtml(topic.heading)}" placeholder="Take note…">
+        <div class="prep-subitems">
+          ${topic.items.map((item) => `
+          <div class="prep-subitem${item.completed ? " is-complete" : ""}" data-prep-item-id="${escapeHtml(item.id)}">
+            <label class="prep-subitem-check"><input type="checkbox" ${item.completed ? "checked" : ""} aria-label="Complete ${escapeHtml(item.text)}"><span class="todo-check" aria-hidden="true">✓</span></label>
+            <div class="prep-subitem-copy">
+              <input class="prep-subitem-text" data-prep-field="text" value="${escapeHtml(item.text)}" maxlength="120" aria-label="Preparation item" placeholder="What to prepare">
+              <input class="prep-subitem-note" data-prep-field="note" value="${escapeHtml(item.note)}" maxlength="180" aria-label="Preparation item note" placeholder="Add a note…">
+            </div>
+            <button type="button" class="prep-subitem-delete" aria-label="Delete ${escapeHtml(item.text)}">×</button>
+          </div>`).join("")}
+        </div>
+        <button type="button" class="prep-add-item">＋ Add item</button>
       </div>
-      <button type="button" class="todo-delete" aria-label="Delete: ${escapeHtml(heading)}">×</button>
-    </div>`;
-  }).join("") : `<p class="todo-empty">No reminders yet. Add the first one whenever you are ready.</p>`;
+    </article>`;
+  }).join("") : `<p class="todo-empty">No preparation topics yet. Add one whenever you are ready.</p>`;
 }
 
 function renderTravelPrep() {
@@ -996,35 +1124,55 @@ function renderTravelPrep() {
   const addTodo = (event) => {
     event?.preventDefault();
     event?.stopPropagation();
-    const todo = { id: `todo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, heading: "New reminder", subheading: "", body: "", completed: false };
+    const todo = { id: `prep-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, heading: "New preparation", note: "", expanded: true, items: [] };
     state.todos.push(todo);
     $("#todo-panel").open = true;
     saveSharedChange("todos", todo).catch(console.error);
     renderTodoList();
     window.setTimeout(() => {
-      const input = $(`[data-todo-id="${todo.id}"] .todo-heading`);
+      const input = $(`[data-todo-id="${todo.id}"] .prep-topic-heading`);
       input?.focus(); input?.select();
     }, 0);
   };
   $("#todo-add").onclick = addTodo;
   $("#todo-add-bottom").onclick = addTodo;
   $("#todo-list").onchange = (event) => {
-    const item = event.target.closest("[data-todo-id]");
-    if (!item) return;
-    const todo = state.todos.find((entry) => entry.id === item.dataset.todoId);
-    if (event.target.matches("input[type='checkbox']")) todo.completed = event.target.checked;
-    else if (event.target.matches("[data-todo-field]")) todo[event.target.dataset.todoField] = event.target.value.trim();
+    const topicElement = event.target.closest("[data-todo-id]");
+    if (!topicElement) return;
+    const topic = state.todos.find((entry) => entry.id === topicElement.dataset.todoId);
+    const itemElement = event.target.closest("[data-prep-item-id]");
+    const item = itemElement && topic.items.find((entry) => entry.id === itemElement.dataset.prepItemId);
+    if (item && event.target.matches("input[type='checkbox']")) item.completed = event.target.checked;
+    else if (item && event.target.matches("[data-prep-field]")) item[event.target.dataset.prepField] = event.target.value.trim();
+    else if (event.target.matches("[data-todo-field]")) topic[event.target.dataset.todoField] = event.target.value.trim();
     else return;
-    saveSharedChange("todos", todo).catch(console.error);
+    saveSharedChange("todos", topic).catch(console.error);
     renderTodoList();
   };
   $("#todo-list").onclick = (event) => {
-    const button = event.target.closest(".todo-delete");
-    if (!button) return;
-    const item = button.closest("[data-todo-id]");
-    state.todos = state.todos.filter((todo) => todo.id !== item.dataset.todoId);
-    saveSharedChange("todos", { id: item.dataset.todoId }, "delete").catch(console.error);
-    renderTodoList();
+    const topicElement = event.target.closest("[data-todo-id]");
+    if (!topicElement) return;
+    const topic = state.todos.find((entry) => entry.id === topicElement.dataset.todoId);
+    if (event.target.closest(".prep-topic-toggle")) {
+      topic.expanded = !topic.expanded;
+      saveSharedChange("todos", topic).catch(console.error);
+      renderTodoList();
+    } else if (event.target.closest(".prep-add-item")) {
+      const item = { id: `prep-item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, text: "New item", note: "", completed: false };
+      topic.items.push(item);
+      saveSharedChange("todos", topic).catch(console.error);
+      renderTodoList();
+      window.setTimeout(() => { const input = $(`[data-prep-item-id="${item.id}"] .prep-subitem-text`); input?.focus(); input?.select(); }, 0);
+    } else if (event.target.closest(".prep-subitem-delete")) {
+      const itemElement = event.target.closest("[data-prep-item-id]");
+      topic.items = topic.items.filter((item) => item.id !== itemElement.dataset.prepItemId);
+      saveSharedChange("todos", topic).catch(console.error);
+      renderTodoList();
+    } else if (event.target.closest(".todo-delete")) {
+      state.todos = state.todos.filter((entry) => entry.id !== topic.id);
+      saveSharedChange("todos", { id: topic.id }, "delete").catch(console.error);
+      renderTodoList();
+    }
   };
 }
 

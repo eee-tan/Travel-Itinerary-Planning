@@ -8,14 +8,17 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>Japan · Kanto & Chubu 2026–27</title>
-  <link rel="stylesheet" href="styles.css?v=20260913-5">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=20260914-1">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
   <script src="trip-data.js?v=20260913-2" defer></script>
   <script src="runtime-storage.js?v=20260910-2" defer></script>
   <script src="overview-map.js?v=20260910-2" defer></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
   <script src="route-ui.js?v=20260913-2" defer></script>
-  <script src="app.js?v=20260913-2" defer></script>
+  <script src="app.js?v=20260914-1" defer></script>
   <script src="ticket-pdf-preview.js?v=20260910-2" defer></script>
   <script src="site-navigation.js?v=20260910-2" defer></script>
 </head>
@@ -27,7 +30,7 @@
 
   <nav class="floating-navigation" id="travel-navigation" aria-label="Trip section shortcuts">
     <a href="#drive" data-module="driving" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4m8-4v4M3 10h18m-9 3v4m-2-2h4"/></svg><span>Appointments</span></a>
-    <a href="#prep" data-module="todo" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h11M9 12h11M9 19h11"/><path d="m3 5 1.5 1.5L7 3.5m-4 8L4.5 13 7 10m-4 8 1.5 1.5L7 17"/></svg><span>To-Do</span></a>
+    <a href="#prep" data-module="todo" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h11M9 12h11M9 19h11"/><path d="m3 5 1.5 1.5L7 3.5m-4 8L4.5 13 7 10m-4 8 1.5 1.5L7 17"/></svg><span>Preparation</span></a>
     <a href="#route" data-module="overview" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3Z"/><path d="M9 3v15m6-12v15"/></svg><span>The Journey</span></a>
     <a href="#itinerary" data-module="itinerary" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8m-8 4h8m-8 4h5"/></svg><span>Daily Itinerary</span></a>
     <a href="#expenses" id="ledger-navigation-link" data-module="ledger" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h15a2 2 0 0 1 2 2v10H5a2 2 0 0 1-2-2V6a3 3 0 0 1 3-3h12v4"/><path d="M16 12h5v4h-5a2 2 0 0 1 0-4Z"/></svg><span>Spending</span></a>
@@ -72,7 +75,7 @@
     <section class="section prep-section" id="prep" aria-labelledby="prep-title" data-module="todo" hidden>
       <details class="section-disclosure" id="todo-panel">
         <summary>
-          <span><span class="section-kicker">REMINDERS</span><span class="section-title" id="prep-title">To-Do / Take Note</span></span>
+          <span><span class="section-kicker">BEFORE WE GO</span><span class="section-title" id="prep-title">Preparation / Take Note</span></span>
           <span class="disclosure-meta"><span class="soft-label" id="todo-progress">0 / 0</span><button class="summary-action" type="button" id="todo-add">Add New</button><span class="disclosure-icon" aria-hidden="true">+</span></span>
         </summary>
         <div class="section-disclosure__body">
@@ -100,7 +103,7 @@
           <p class="section-kicker">DAY BY DAY</p>
           <h2 id="itinerary-title">Daily Itinerary</h2>
         </div>
-        <span class="soft-label" id="day-count"></span>
+        <span class="itinerary-heading-actions"><span class="soft-label" id="day-count"></span><button class="itinerary-edit-button" id="itinerary-edit" type="button" aria-pressed="false">Edit</button></span>
       </div>
       <div class="timeline" id="timeline"></div>
     </section>
