@@ -9,7 +9,10 @@ const state = {
   dayPhotos: {},
   dayTitles: {},
   itinerarySchedule: {},
+  itineraryLocations: {},
   editingItinerary: false,
+  expandedDayBeforeEdit: null,
+  editingLocationKey: null,
   appointmentMedia: {},
   customAppointments: [],
   expenses: []
@@ -425,23 +428,32 @@ function inlineTicketMarkup(ticket) {
 function dayCard(day) {
   const today = todayForTrip();
   const isToday = day.date === today;
-  const expanded = state.expandedDay === day.day;
+  const expanded = state.editingItinerary || state.expandedDay === day.day;
   const dayKey = itineraryDayKey(day);
   const schedule = (day.schedule || []).map((item) => {
     const noteKey = `${dayKey}:${item.id}`;
     const photo = state.dayPhotos[noteKey] || "";
-    const destinations = navigationDestinations(item);
-    const mapLinks = destinations.map((destination) => `
-      <button type="button" class="schedule-map-link" data-map-query="${escapeHtml(destination.query)}" data-map-url="${escapeHtml(destination.url || "")}" data-map-label="${escapeHtml(destination.label)}" aria-haspopup="dialog" aria-controls="place-map" aria-label="View ${escapeHtml(destination.label)} on the map">📍 ${escapeHtml(destination.label)}</button>
+    const destinations = scheduleLocations(noteKey, item);
+    const mapLinks = destinations.map((destination, locationIndex) => `
+      <span class="schedule-location-chip">
+        <button type="button" class="schedule-map-link" data-map-query="${escapeHtml(destination.query)}" data-map-url="${escapeHtml(destination.url || "")}" data-map-label="${escapeHtml(destination.label)}" aria-haspopup="dialog" aria-controls="place-map" aria-label="View ${escapeHtml(destination.label)} on the map">📍 ${escapeHtml(destination.label)}</button>
+        ${state.editingItinerary ? `<button type="button" class="schedule-location-remove" data-location-key="${escapeHtml(noteKey)}" data-location-index="${locationIndex}" aria-label="Remove ${escapeHtml(destination.label)}">×</button>` : ""}
+      </span>
     `).join("");
+    const locationEditor = state.editingItinerary ? `
+      <button type="button" class="schedule-location-add" data-add-location="${escapeHtml(noteKey)}">＋ Add location</button>
+      ${state.editingLocationKey === noteKey ? `<form class="schedule-location-editor" data-location-form="${escapeHtml(noteKey)}">
+        <label><span>Location</span><input name="location" maxlength="180" required autocomplete="off" placeholder="Search place or paste coordinates" aria-label="Search place or paste coordinates"></label>
+        <span class="schedule-location-editor__actions"><button type="button" data-cancel-location>Cancel</button><button type="submit">Add</button></span>
+      </form>` : ""}` : "";
     const scheduleTickets = ticketsForSchedule(day, item).map(inlineTicketMarkup).join("");
     return `
-      <li class="schedule-item${state.editingItinerary ? " is-editable" : ""}" data-schedule-id="${escapeHtml(item.id)}" data-source-day="${day.day}" ${state.editingItinerary ? 'draggable="true"' : ""}>
-        ${state.editingItinerary ? `<span class="schedule-drag-handle" aria-hidden="true" title="Drag to another day">⋮⋮</span><input class="schedule-time schedule-time-editor" data-schedule-field="time" value="${escapeHtml(item.time)}" maxlength="24" aria-label="Edit time">` : `<span class="schedule-time">${escapeHtml(item.time)}</span>`}
+      <li class="schedule-item${state.editingItinerary ? " is-editable" : ""}" data-schedule-id="${escapeHtml(item.id)}" data-source-day="${day.day}">
+        ${state.editingItinerary ? `<button class="schedule-drag-handle" type="button" draggable="true" aria-label="Drag and reorder ${escapeHtml(item.time)} ${escapeHtml(item.text)}" title="Drag to reorder">🟰</button><input class="schedule-time schedule-time-editor" data-schedule-field="time" value="${escapeHtml(item.time)}" maxlength="24" aria-label="Edit time">` : `<span class="schedule-time">${escapeHtml(item.time)}</span>`}
         <div class="schedule-content">
           ${state.editingItinerary ? `<textarea class="schedule-text schedule-text-editor" data-schedule-field="text" rows="2" maxlength="300" aria-label="Edit itinerary item">${escapeHtml(item.text)}</textarea>` : `<div class="schedule-text">${escapeHtml(item.text)}</div>`}
           ${scheduleTickets}
-          ${mapLinks ? `<div class="schedule-map-links">${mapLinks}</div>` : ""}
+          ${(mapLinks || locationEditor) ? `<div class="schedule-map-links">${mapLinks}${locationEditor}</div>` : ""}
           <div class="schedule-quick-record">
             <div class="schedule-note"><input type="text" maxlength="160" data-schedule-note="${escapeHtml(noteKey)}" value="${escapeHtml(state.dayNotes[noteKey] || "")}" placeholder="Add a quick note…" aria-label="Quick note for ${escapeHtml(item.time)} ${escapeHtml(item.text)}"><span role="status"></span></div>
             <label class="schedule-photo-add" title="Add a photo"><input type="file" accept="image/*" data-schedule-photo="${escapeHtml(noteKey)}"><span aria-hidden="true">＋</span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="3"/><path d="m3 16 5-5 4 4 3-3 6 6M9 9h.01"/></svg><span class="sr-only">Add photo</span></label>
@@ -546,9 +558,80 @@ function navigationDestinations(item) {
   return destinations;
 }
 
+function scheduleLocations(noteKey, item) {
+  const saved = state.itineraryLocations[noteKey];
+  const source = Array.isArray(saved) ? saved : navigationDestinations(item);
+  return source.map((destination, index) => ({
+    id: String(destination.id || `custom-location-${index + 1}`),
+    label: String(destination.label || destination.query || "Location"),
+    query: String(destination.query || destination.label || ""),
+    url: String(destination.url || "")
+  })).filter((destination) => destination.query);
+}
+
+function persistScheduleLocations(noteKey, locations) {
+  state.itineraryLocations[noteKey] = locations.map((location, index) => ({
+    id: String(location.id || `custom-location-${Date.now()}-${index}`),
+    label: String(location.label || location.query || "Location"),
+    query: String(location.query || location.label || ""),
+    url: String(location.url || "")
+  }));
+  savePersonalState();
+}
+
 function currentTripDay() {
   const today = todayForTrip();
   return state.data.days.find((day) => day.date === today)?.day || null;
+}
+
+function moveScheduleItem(sourceDayNumber, scheduleId, targetDayNumber, targetIndex) {
+  const sourceDay = state.data.days.find((day) => day.day === Number(sourceDayNumber));
+  const targetDay = state.data.days.find((day) => day.day === Number(targetDayNumber));
+  if (!sourceDay || !targetDay) return false;
+  const sourceIndex = sourceDay.schedule.findIndex((item) => String(item.id) === String(scheduleId));
+  if (sourceIndex < 0) return false;
+  const [moved] = sourceDay.schedule.splice(sourceIndex, 1);
+  let insertionIndex = Number.isFinite(targetIndex) ? targetIndex : targetDay.schedule.length;
+  if (sourceDay === targetDay && sourceIndex < insertionIndex) insertionIndex -= 1;
+  insertionIndex = Math.max(0, Math.min(insertionIndex, targetDay.schedule.length));
+  targetDay.schedule.splice(insertionIndex, 0, moved);
+  if (sourceDay !== targetDay) {
+    const oldNoteKey = `${itineraryDayKey(sourceDay)}:${moved.id}`;
+    const newNoteKey = `${itineraryDayKey(targetDay)}:${moved.id}`;
+    if (Object.prototype.hasOwnProperty.call(state.dayNotes, oldNoteKey)) {
+      state.dayNotes[newNoteKey] = state.dayNotes[oldNoteKey];
+      delete state.dayNotes[oldNoteKey];
+    }
+    if (Object.prototype.hasOwnProperty.call(state.dayPhotos, oldNoteKey)) {
+      state.dayPhotos[newNoteKey] = state.dayPhotos[oldNoteKey];
+      delete state.dayPhotos[oldNoteKey];
+    }
+    if (Object.prototype.hasOwnProperty.call(state.itineraryLocations, oldNoteKey)) {
+      state.itineraryLocations[newNoteKey] = state.itineraryLocations[oldNoteKey];
+      delete state.itineraryLocations[oldNoteKey];
+    }
+  }
+  captureItinerarySchedule();
+  savePersonalState();
+  return true;
+}
+
+function scheduleDropTarget(eventTarget, clientY) {
+  const itemElement = eventTarget.closest?.(".schedule-item[data-schedule-id]");
+  const dayCardElement = eventTarget.closest?.(".day-card");
+  if (!dayCardElement) return null;
+  if (!itemElement) {
+    const day = state.data.days.find((entry) => entry.day === Number(dayCardElement.dataset.day));
+    return { day: Number(dayCardElement.dataset.day), index: day?.schedule?.length || 0, itemElement: null, position: "after" };
+  }
+  const siblings = $$(".schedule-item[data-schedule-id]", itemElement.closest(".schedule"));
+  const itemIndex = siblings.indexOf(itemElement);
+  const position = clientY < itemElement.getBoundingClientRect().top + itemElement.getBoundingClientRect().height / 2 ? "before" : "after";
+  return { day: Number(dayCardElement.dataset.day), index: itemIndex + (position === "after" ? 1 : 0), itemElement, position };
+}
+
+function clearScheduleDropIndicators() {
+  $$(".is-drag-target,.is-drop-before,.is-drop-after", $("#timeline")).forEach((element) => element.classList.remove("is-drag-target", "is-drop-before", "is-drop-after"));
 }
 
 function renderTimeline() {
@@ -559,8 +642,14 @@ function renderTimeline() {
   editButton.textContent = state.editingItinerary ? "Done" : "Edit";
   editButton.setAttribute("aria-pressed", String(state.editingItinerary));
   editButton.onclick = () => {
-    state.editingItinerary = !state.editingItinerary;
     if (!state.editingItinerary) {
+      state.expandedDayBeforeEdit = state.expandedDay;
+      state.editingItinerary = true;
+    } else {
+      state.editingItinerary = false;
+      state.editingLocationKey = null;
+      state.expandedDay = state.expandedDayBeforeEdit;
+      state.expandedDayBeforeEdit = null;
       captureItinerarySchedule();
       savePersonalState();
     }
@@ -583,8 +672,32 @@ function renderTimeline() {
       openTicketDialog(ticketButton.dataset.ticketOpen, ticketButton);
       return;
     }
+    const removeLocation = event.target.closest("[data-location-index]");
+    if (removeLocation && state.editingItinerary) {
+      const key = removeLocation.dataset.locationKey;
+      const scheduleItem = removeLocation.closest("[data-schedule-id]");
+      const day = state.data.days.find((entry) => entry.day === Number(scheduleItem?.dataset.sourceDay));
+      const item = day?.schedule?.find((entry) => String(entry.id) === scheduleItem?.dataset.scheduleId);
+      const locations = scheduleLocations(key, item).filter((_, index) => index !== Number(removeLocation.dataset.locationIndex));
+      persistScheduleLocations(key, locations);
+      renderTimeline();
+      return;
+    }
+    const addLocation = event.target.closest("[data-add-location]");
+    if (addLocation && state.editingItinerary) {
+      state.editingLocationKey = addLocation.dataset.addLocation;
+      renderTimeline();
+      window.setTimeout(() => $(`[data-location-form="${CSS.escape(state.editingLocationKey)}"] input`)?.focus(), 0);
+      return;
+    }
+    if (event.target.closest("[data-cancel-location]")) {
+      state.editingLocationKey = null;
+      renderTimeline();
+      return;
+    }
     const toggle = event.target.closest(".day-toggle");
     if (!toggle) return;
+    if (state.editingItinerary) return;
     const card = toggle.closest(".day-card");
     const dayNumber = Number(card.dataset.day);
     const wasExpanded = toggle.getAttribute("aria-expanded") === "true";
@@ -597,6 +710,22 @@ function renderTimeline() {
     } else {
       state.expandedDay = null;
     }
+  };
+  $("#timeline").onsubmit = (event) => {
+    const form = event.target.closest("[data-location-form]");
+    if (!form || !state.editingItinerary) return;
+    event.preventDefault();
+    const value = String(new FormData(form).get("location") || "").trim();
+    if (!value) return;
+    const scheduleItem = form.closest("[data-schedule-id]");
+    const day = state.data.days.find((entry) => entry.day === Number(scheduleItem?.dataset.sourceDay));
+    const item = day?.schedule?.find((entry) => String(entry.id) === scheduleItem?.dataset.scheduleId);
+    const key = form.dataset.locationForm;
+    const locations = scheduleLocations(key, item);
+    locations.push({ id: `custom-location-${Date.now()}`, label: value, query: value, url: "" });
+    persistScheduleLocations(key, locations);
+    state.editingLocationKey = null;
+    renderTimeline();
   };
   $("#timeline").onchange = (event) => {
     const titleInput = event.target.closest("[data-day-title]");
@@ -658,56 +787,97 @@ function renderTimeline() {
     if (noteInput && event.key === "Enter") { event.preventDefault(); noteInput.blur(); }
   };
   $("#timeline").ondragstart = (event) => {
-    const item = event.target.closest(".schedule-item[data-schedule-id]");
-    if (!state.editingItinerary || !item) { event.preventDefault(); return; }
+    const handle = event.target.closest(".schedule-drag-handle");
+    const item = handle?.closest(".schedule-item[data-schedule-id]");
+    if (!state.editingItinerary || !handle || !item) { event.preventDefault(); return; }
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", JSON.stringify({ day: Number(item.dataset.sourceDay), id: item.dataset.scheduleId }));
+    event.dataTransfer.setDragImage(item, 28, 22);
     item.classList.add("is-dragging");
   };
   $("#timeline").ondragend = () => {
-    $$(".is-dragging,.is-drag-target", $("#timeline")).forEach((element) => element.classList.remove("is-dragging", "is-drag-target"));
+    $$(".is-dragging", $("#timeline")).forEach((element) => element.classList.remove("is-dragging"));
+    clearScheduleDropIndicators();
   };
   $("#timeline").ondragover = (event) => {
-    const card = event.target.closest(".day-card");
-    if (!state.editingItinerary || !card) return;
+    const target = scheduleDropTarget(event.target, event.clientY);
+    if (!state.editingItinerary || !target) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
-    $$(".is-drag-target", $("#timeline")).forEach((element) => element.classList.remove("is-drag-target"));
-    card.classList.add("is-drag-target");
+    clearScheduleDropIndicators();
+    const card = event.target.closest(".day-card");
+    card?.classList.add("is-drag-target");
+    target.itemElement?.classList.add(target.position === "before" ? "is-drop-before" : "is-drop-after");
   };
   $("#timeline").ondrop = (event) => {
-    const targetCard = event.target.closest(".day-card");
-    if (!state.editingItinerary || !targetCard) return;
+    const target = scheduleDropTarget(event.target, event.clientY);
+    if (!state.editingItinerary || !target) return;
     event.preventDefault();
     let dragged;
     try { dragged = JSON.parse(event.dataTransfer.getData("text/plain")); } catch { return; }
-    const sourceDay = state.data.days.find((day) => day.day === Number(dragged.day));
-    const targetDay = state.data.days.find((day) => day.day === Number(targetCard.dataset.day));
-    if (!sourceDay || !targetDay || sourceDay === targetDay) return;
-    const sourceIndex = sourceDay.schedule.findIndex((item) => String(item.id) === String(dragged.id));
-    if (sourceIndex < 0) return;
-    const [moved] = sourceDay.schedule.splice(sourceIndex, 1);
-    targetDay.schedule.push(moved);
-    const oldNoteKey = `${itineraryDayKey(sourceDay)}:${moved.id}`;
-    const newNoteKey = `${itineraryDayKey(targetDay)}:${moved.id}`;
-    if (Object.prototype.hasOwnProperty.call(state.dayNotes, oldNoteKey)) {
-      state.dayNotes[newNoteKey] = state.dayNotes[oldNoteKey];
-      delete state.dayNotes[oldNoteKey];
-    }
-    if (Object.prototype.hasOwnProperty.call(state.dayPhotos, oldNoteKey)) {
-      state.dayPhotos[newNoteKey] = state.dayPhotos[oldNoteKey];
-      delete state.dayPhotos[oldNoteKey];
-    }
-    state.expandedDay = targetDay.day;
-    captureItinerarySchedule();
-    savePersonalState();
-    renderTimeline();
+    if (moveScheduleItem(dragged.day, dragged.id, target.day, target.index)) renderTimeline();
   };
+
+  let pointerDrag = null;
+  $("#timeline").onpointerdown = (event) => {
+    if (!state.editingItinerary || !["touch", "pen"].includes(event.pointerType)) return;
+    const handle = event.target.closest(".schedule-drag-handle");
+    const item = handle?.closest(".schedule-item[data-schedule-id]");
+    if (!handle || !item) return;
+    event.preventDefault();
+    handle.setPointerCapture?.(event.pointerId);
+    pointerDrag = { pointerId: event.pointerId, handle, item, startX: event.clientX, startY: event.clientY, active: false, target: null, ghost: null };
+  };
+  $("#timeline").onpointermove = (event) => {
+    if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+    const distance = Math.hypot(event.clientX - pointerDrag.startX, event.clientY - pointerDrag.startY);
+    if (!pointerDrag.active && distance < 7) return;
+    event.preventDefault();
+    if (!pointerDrag.active) {
+      pointerDrag.active = true;
+      pointerDrag.item.classList.add("is-dragging");
+      document.body.classList.add("is-touch-dragging");
+      pointerDrag.ghost = pointerDrag.item.cloneNode(true);
+      pointerDrag.ghost.className = "schedule-drag-ghost";
+      pointerDrag.ghost.style.width = `${Math.min(pointerDrag.item.getBoundingClientRect().width, window.innerWidth - 24)}px`;
+      document.body.append(pointerDrag.ghost);
+    }
+    pointerDrag.ghost.style.left = `${Math.max(8, Math.min(event.clientX + 14, window.innerWidth - pointerDrag.ghost.offsetWidth - 8))}px`;
+    pointerDrag.ghost.style.top = `${Math.max(8, Math.min(event.clientY - 24, window.innerHeight - pointerDrag.ghost.offsetHeight - 8))}px`;
+    if (event.clientY < 88) window.scrollBy({ top: -14, behavior: "auto" });
+    else if (event.clientY > window.innerHeight - 104) window.scrollBy({ top: 14, behavior: "auto" });
+    const hit = document.elementFromPoint(event.clientX, event.clientY);
+    const target = hit ? scheduleDropTarget(hit, event.clientY) : null;
+    pointerDrag.target = target;
+    clearScheduleDropIndicators();
+    const card = hit?.closest?.(".day-card");
+    card?.classList.add("is-drag-target");
+    target?.itemElement?.classList.add(target.position === "before" ? "is-drop-before" : "is-drop-after");
+  };
+  const endPointerDrag = (event) => {
+    if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+    pointerDrag.handle.releasePointerCapture?.(event.pointerId);
+    const { active, target, item, ghost } = pointerDrag;
+    pointerDrag = null;
+    ghost?.remove();
+    item.classList.remove("is-dragging");
+    document.body.classList.remove("is-touch-dragging");
+    clearScheduleDropIndicators();
+    if (active && target && moveScheduleItem(Number(item.dataset.sourceDay), item.dataset.scheduleId, target.day, target.index)) renderTimeline();
+  };
+  $("#timeline").onpointerup = endPointerDrag;
+  $("#timeline").onpointercancel = endPointerDrag;
 }
 
 window.openItineraryDay = (dayNumber, { scroll = true } = {}) => {
   const card = $(`.day-card[data-day="${Number(dayNumber)}"]`);
   if (!card) return;
+  if (state.editingItinerary) {
+    $$(".day-toggle", $("#timeline")).forEach((button) => button.setAttribute("aria-expanded", "true"));
+    $$(".day-detail", $("#timeline")).forEach((detail) => { detail.hidden = false; });
+    if (scroll) card.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
   $$(".day-toggle", $("#timeline")).forEach((button) => button.setAttribute("aria-expanded", "false"));
   $$(".day-detail", $("#timeline")).forEach((detail) => { detail.hidden = true; });
   const toggle = $(".day-toggle", card);
@@ -882,6 +1052,7 @@ function loadPersonalState() {
   try { state.dayPhotos = JSON.parse(localStorage.getItem(personalStorageKey("day-photos")) || "{}"); } catch { state.dayPhotos = {}; }
   try { state.dayTitles = JSON.parse(localStorage.getItem(personalStorageKey("day-titles")) || "{}"); } catch { state.dayTitles = {}; }
   try { state.itinerarySchedule = JSON.parse(localStorage.getItem(personalStorageKey("itinerary-schedule")) || "{}"); } catch { state.itinerarySchedule = {}; }
+  try { state.itineraryLocations = JSON.parse(localStorage.getItem(personalStorageKey("itinerary-locations")) || "{}"); } catch { state.itineraryLocations = {}; }
   applySavedItinerarySchedule();
   try { state.appointmentMedia = JSON.parse(localStorage.getItem(personalStorageKey("appointment-media")) || "{}"); } catch { state.appointmentMedia = {}; }
   try { state.customAppointments = JSON.parse(localStorage.getItem(personalStorageKey("custom-appointments")) || "[]"); } catch { state.customAppointments = []; }
@@ -897,6 +1068,7 @@ function savePersonalState() {
   localStorage.setItem(personalStorageKey("day-photos"), JSON.stringify(state.dayPhotos));
   localStorage.setItem(personalStorageKey("day-titles"), JSON.stringify(state.dayTitles));
   localStorage.setItem(personalStorageKey("itinerary-schedule"), JSON.stringify(state.itinerarySchedule));
+  localStorage.setItem(personalStorageKey("itinerary-locations"), JSON.stringify(state.itineraryLocations));
   localStorage.setItem(personalStorageKey("appointment-media"), JSON.stringify(state.appointmentMedia));
   localStorage.setItem(personalStorageKey("custom-appointments"), JSON.stringify(state.customAppointments));
   localStorage.setItem(personalStorageKey("expenses"), JSON.stringify(state.expenses));
@@ -1078,18 +1250,37 @@ function normalizePreparationTopic(todo, index = 0) {
     heading: String(todo.heading || todo.title || "New preparation").trim() || "New preparation",
     note: String(todo.note || ""),
     expanded: todo.expanded !== false,
-    items: items.map((item, itemIndex) => ({
-      id: String(item.id || `${todo.id || `prep-${index + 1}`}-item-${itemIndex + 1}`),
-      text: String(item.text || item.heading || "Preparation item"),
-      note: String(item.note || item.body || ""),
-      completed: Boolean(item.completed)
-    }))
+    items: items.map((item, itemIndex) => {
+      const legacyChild = String(item.note || item.body || "").trim();
+      const children = Array.isArray(item.children) ? item.children : (legacyChild ? [{
+        id: `${item.id || `prep-item-${itemIndex + 1}`}-child-1`, text: legacyChild, completed: false
+      }] : []);
+      return {
+        id: String(item.id || `${todo.id || `prep-${index + 1}`}-item-${itemIndex + 1}`),
+        text: String(item.text || item.heading || "Preparation section"),
+        completed: Boolean(item.completed),
+        children: children.map((child, childIndex) => ({
+          id: String(child.id || `${item.id || `prep-item-${itemIndex + 1}`}-child-${childIndex + 1}`),
+          text: String(child.text || child.heading || "Preparation item"),
+          completed: Boolean(child.completed)
+        }))
+      };
+    })
   };
+}
+
+function resizePreparationTextarea(textarea) {
+  textarea.style.height = "auto";
+  textarea.style.height = `${Math.max(Number(textarea.dataset.minHeight || 30), textarea.scrollHeight)}px`;
+}
+
+function resizePreparationTextareas(root = document) {
+  $$('textarea[data-prep-autogrow]', root).forEach(resizePreparationTextarea);
 }
 
 function renderTodoList() {
   state.todos = state.todos.map(normalizePreparationTopic);
-  const allItems = state.todos.flatMap((topic) => topic.items);
+  const allItems = state.todos.flatMap((topic) => topic.items.flatMap((item) => [item, ...item.children]));
   const completed = allItems.filter((item) => item.completed).length;
   $("#todo-progress").textContent = `${completed} / ${allItems.length}`;
   $("#todo-list").innerHTML = state.todos.length ? state.todos.map((topic) => {
@@ -1097,26 +1288,35 @@ function renderTodoList() {
     <article class="prep-topic" data-todo-id="${escapeHtml(topic.id)}">
       <header class="prep-topic__header">
         <button class="prep-topic-toggle" type="button" aria-expanded="${topic.expanded}" aria-label="${topic.expanded ? "Collapse" : "Expand"} ${escapeHtml(topic.heading)}"><span aria-hidden="true"></span></button>
-        <input class="prep-topic-heading" data-todo-field="heading" value="${escapeHtml(topic.heading)}" maxlength="100" aria-label="Preparation heading" placeholder="Preparation heading">
+        <textarea class="prep-topic-heading" data-todo-field="heading" data-prep-autogrow data-min-height="36" rows="1" maxlength="180" aria-label="Preparation heading" placeholder="Preparation heading">${escapeHtml(topic.heading)}</textarea>
         <button type="button" class="todo-delete" aria-label="Delete ${escapeHtml(topic.heading)}">×</button>
       </header>
       <div class="prep-topic__body" ${topic.expanded ? "" : "hidden"}>
-        <input class="prep-topic-note" data-todo-field="note" value="${escapeHtml(topic.note)}" maxlength="220" aria-label="Note for ${escapeHtml(topic.heading)}" placeholder="Take note…">
+        <textarea class="prep-topic-note" data-todo-field="note" data-prep-autogrow data-min-height="34" rows="1" maxlength="800" aria-label="Note for ${escapeHtml(topic.heading)}" placeholder="Take note…">${escapeHtml(topic.note)}</textarea>
         <div class="prep-subitems">
           ${topic.items.map((item) => `
           <div class="prep-subitem${item.completed ? " is-complete" : ""}" data-prep-item-id="${escapeHtml(item.id)}">
             <label class="prep-subitem-check"><input type="checkbox" ${item.completed ? "checked" : ""} aria-label="Complete ${escapeHtml(item.text)}"><span class="todo-check" aria-hidden="true">✓</span></label>
             <div class="prep-subitem-copy">
-              <input class="prep-subitem-text" data-prep-field="text" value="${escapeHtml(item.text)}" maxlength="120" aria-label="Preparation item" placeholder="What to prepare">
-              <input class="prep-subitem-note" data-prep-field="note" value="${escapeHtml(item.note)}" maxlength="180" aria-label="Preparation item note" placeholder="Add a note…">
+              <textarea class="prep-subitem-text" data-prep-field="text" data-prep-autogrow data-min-height="32" rows="1" maxlength="500" aria-label="Preparation section" placeholder="Preparation section">${escapeHtml(item.text)}</textarea>
+              <div class="prep-subsubitems">
+                ${item.children.map((child) => `
+                <div class="prep-subsubitem${child.completed ? " is-complete" : ""}" data-prep-child-id="${escapeHtml(child.id)}">
+                  <label class="prep-subsubitem-check"><input type="checkbox" ${child.completed ? "checked" : ""} aria-label="Complete ${escapeHtml(child.text)}"><span class="todo-check" aria-hidden="true">✓</span></label>
+                  <textarea class="prep-subsubitem-text" data-prep-child-field="text" data-prep-autogrow data-min-height="30" rows="1" maxlength="500" aria-label="Nested preparation item" placeholder="Add an item…">${escapeHtml(child.text)}</textarea>
+                  <button type="button" class="prep-subsubitem-delete" aria-label="Delete ${escapeHtml(child.text)}">×</button>
+                </div>`).join("")}
+              </div>
+              <button type="button" class="prep-add-item">＋ Add item</button>
             </div>
             <button type="button" class="prep-subitem-delete" aria-label="Delete ${escapeHtml(item.text)}">×</button>
           </div>`).join("")}
         </div>
-        <button type="button" class="prep-add-item">＋ Add item</button>
+        <button type="button" class="prep-add-section">＋ Add section</button>
       </div>
     </article>`;
   }).join("") : `<p class="todo-empty">No preparation topics yet. Add one whenever you are ready.</p>`;
+  resizePreparationTextareas($("#todo-list"));
 }
 
 function renderTravelPrep() {
@@ -1130,8 +1330,8 @@ function renderTravelPrep() {
     saveSharedChange("todos", todo).catch(console.error);
     renderTodoList();
     window.setTimeout(() => {
-      const input = $(`[data-todo-id="${todo.id}"] .prep-topic-heading`);
-      input?.focus(); input?.select();
+      const textarea = $(`[data-todo-id="${todo.id}"] .prep-topic-heading`);
+      textarea?.focus(); textarea?.select();
     }, 0);
   };
   $("#todo-add").onclick = addTodo;
@@ -1142,12 +1342,25 @@ function renderTravelPrep() {
     const topic = state.todos.find((entry) => entry.id === topicElement.dataset.todoId);
     const itemElement = event.target.closest("[data-prep-item-id]");
     const item = itemElement && topic.items.find((entry) => entry.id === itemElement.dataset.prepItemId);
-    if (item && event.target.matches("input[type='checkbox']")) item.completed = event.target.checked;
+    const childElement = event.target.closest("[data-prep-child-id]");
+    const child = childElement && item?.children.find((entry) => entry.id === childElement.dataset.prepChildId);
+    let shouldRender = false;
+    if (child && event.target.matches("input[type='checkbox']")) {
+      child.completed = event.target.checked;
+      item.completed = item.children.length > 0 && item.children.every((entry) => entry.completed);
+      shouldRender = true;
+    }
+    else if (child && event.target.matches("[data-prep-child-field]")) child[event.target.dataset.prepChildField] = event.target.value.trim();
+    else if (item && event.target.matches(".prep-subitem-check input[type='checkbox']")) {
+      item.completed = event.target.checked;
+      item.children.forEach((entry) => { entry.completed = item.completed; });
+      shouldRender = true;
+    }
     else if (item && event.target.matches("[data-prep-field]")) item[event.target.dataset.prepField] = event.target.value.trim();
     else if (event.target.matches("[data-todo-field]")) topic[event.target.dataset.todoField] = event.target.value.trim();
     else return;
     saveSharedChange("todos", topic).catch(console.error);
-    renderTodoList();
+    if (shouldRender) renderTodoList();
   };
   $("#todo-list").onclick = (event) => {
     const topicElement = event.target.closest("[data-todo-id]");
@@ -1157,12 +1370,29 @@ function renderTravelPrep() {
       topic.expanded = !topic.expanded;
       saveSharedChange("todos", topic).catch(console.error);
       renderTodoList();
-    } else if (event.target.closest(".prep-add-item")) {
-      const item = { id: `prep-item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, text: "New item", note: "", completed: false };
+    } else if (event.target.closest(".prep-add-section")) {
+      const item = { id: `prep-item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, text: "New preparation section", completed: false, children: [] };
       topic.items.push(item);
       saveSharedChange("todos", topic).catch(console.error);
       renderTodoList();
-      window.setTimeout(() => { const input = $(`[data-prep-item-id="${item.id}"] .prep-subitem-text`); input?.focus(); input?.select(); }, 0);
+      window.setTimeout(() => { const textarea = $(`[data-prep-item-id="${item.id}"] .prep-subitem-text`); textarea?.focus(); textarea?.select(); }, 0);
+    } else if (event.target.closest(".prep-add-item")) {
+      const itemElement = event.target.closest("[data-prep-item-id]");
+      const item = topic.items.find((entry) => entry.id === itemElement.dataset.prepItemId);
+      const child = { id: `prep-child-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, text: "New item", completed: false };
+      item.children.push(child);
+      item.completed = false;
+      saveSharedChange("todos", topic).catch(console.error);
+      renderTodoList();
+      window.setTimeout(() => { const textarea = $(`[data-prep-child-id="${child.id}"] .prep-subsubitem-text`); textarea?.focus(); textarea?.select(); }, 0);
+    } else if (event.target.closest(".prep-subsubitem-delete")) {
+      const itemElement = event.target.closest("[data-prep-item-id]");
+      const childElement = event.target.closest("[data-prep-child-id]");
+      const item = topic.items.find((entry) => entry.id === itemElement.dataset.prepItemId);
+      item.children = item.children.filter((child) => child.id !== childElement.dataset.prepChildId);
+      item.completed = item.children.length > 0 && item.children.every((child) => child.completed);
+      saveSharedChange("todos", topic).catch(console.error);
+      renderTodoList();
     } else if (event.target.closest(".prep-subitem-delete")) {
       const itemElement = event.target.closest("[data-prep-item-id]");
       topic.items = topic.items.filter((item) => item.id !== itemElement.dataset.prepItemId);
@@ -1173,6 +1403,10 @@ function renderTravelPrep() {
       saveSharedChange("todos", { id: topic.id }, "delete").catch(console.error);
       renderTodoList();
     }
+  };
+  $("#todo-list").oninput = (event) => {
+    const textarea = event.target.closest("textarea[data-prep-autogrow]");
+    if (textarea) resizePreparationTextarea(textarea);
   };
 }
 
