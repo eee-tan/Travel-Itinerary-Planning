@@ -23,7 +23,7 @@ window.TRAVEL_PLAN_DATA_BUNDLE = {
     "language": "en",
     "assets": {
       "routeMaps": [
-        "assets/maps/kanto-chubu-relief-overview-self-drive.png"
+        "assets/maps/kanto-chubu-relief-clean.png"
       ]
     }
   },
@@ -1407,7 +1407,7 @@ window.TRAVEL_PLAN_DATA_BUNDLE = {
           "type": "relative-schematic",
           "bounds": null
         },
-        "baseImage": "assets/maps/kanto-chubu-relief-overview-self-drive.png",
+        "baseImage": "assets/maps/kanto-chubu-relief-clean.png",
         "title": "Japan · Travel Route",
         "ariaLabel": "Japan illustrative travel route covering 17 days",
         "disclaimer": "This diagram shows relative locations and route order only; it is not to scale and does not represent precise geographic boundaries.",

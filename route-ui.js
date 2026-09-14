@@ -156,26 +156,40 @@ function initializeGeographicMap(id, source, visiblePlaceIds, route) {
   }
   activeGeographicMap?.remove();
   element.replaceChildren();
-  // The confirmed relief artwork is the visual source for the overview and
-  // every daily view. Leaflet supplies interaction plus live route layers.
-  const regionalBounds = window.L.latLngBounds([[34.0, 135.52], [38.13, 140.67]]);
+  // A clean relief raster is the zoomable base layer. Every place, route and
+  // transport symbol below is a separate coordinate-bound Leaflet overlay.
+  const imageSize = { width: 1585, height: 992 };
+  const geoExtent = { south: 34, west: 135.52, north: 38.13, east: 140.67 };
+  const imageBounds = window.L.latLngBounds([[0, 0], [imageSize.height, imageSize.width]]);
+  const projectGeo = (geo) => {
+    const x = ((Number(geo.lng) - geoExtent.west) / (geoExtent.east - geoExtent.west)) * imageSize.width;
+    const y = ((Number(geo.lat) - geoExtent.south) / (geoExtent.north - geoExtent.south)) * imageSize.height;
+    return window.L.latLng(y, x);
+  };
   const map = window.L.map(element, {
-    zoomControl: true, scrollWheelZoom: true, zoomSnap: .5, zoomDelta: .5,
-    minZoom: 6, maxZoom: 12, maxBounds: regionalBounds.pad(.08), maxBoundsViscosity: .8,
+    crs: window.L.CRS.Simple,
+    zoomControl: true, dragging: true, touchZoom: true, doubleClickZoom: true,
+    scrollWheelZoom: true, zoomSnap: .25, zoomDelta: .5, wheelPxPerZoomLevel: 80,
+    minZoom: -2, maxZoom: 4, maxBounds: imageBounds.pad(.06), maxBoundsViscosity: .92,
     attributionControl: false
   });
   activeGeographicMap = map;
-  window.L.imageOverlay("assets/maps/kanto-chubu-relief-overview-self-drive.png?v=20260914", regionalBounds, {
+  window.L.imageOverlay("assets/maps/kanto-chubu-relief-clean.png?v=20260914-2", imageBounds, {
     className: "relief-map-image",
     interactive: false,
     opacity: 1
   }).addTo(map);
-  const coordinates = places.map((place) => [Number(place.geo.lat), Number(place.geo.lng)]);
+  const coordinates = places.map((place) => projectGeo(place.geo));
   places.forEach((place) => {
     const [label, query] = placeOptions(source, place.id)[0];
     const category = place.category || "attraction";
-    const icon = window.L.divIcon({ className: "leaflet-category-marker", html: `<span class="map-place-dot--${escapeHtml(category)}">${placeCategoryIcon(category)}</span>`, iconSize: [34, 34], iconAnchor: [17, 17], popupAnchor: [0, -16] });
-    window.L.marker([Number(place.geo.lat), Number(place.geo.lng)], { icon, title: label })
+    const labelSide = ["place-haneda", "place-kawagoe", "place-hakone", "place-minakami"].includes(place.id) ? " is-left" : "";
+    const icon = window.L.divIcon({
+      className: "leaflet-category-marker",
+      html: `<span class="map-place-sticker${labelSide}"><i class="map-place-dot--${escapeHtml(category)}">${placeCategoryIcon(category)}</i><b>${escapeHtml(label)}</b></span>`,
+      iconSize: [172, 38], iconAnchor: [19, 19], popupAnchor: [0, -19]
+    });
+    window.L.marker(projectGeo(place.geo), { icon, title: label })
       .addTo(map)
       .bindPopup(`<strong>${escapeHtml(label)}</strong><br><a href="${mapsSearch(query)}" target="_blank" rel="noopener noreferrer">Open in Google Maps ↗</a>`);
   });
@@ -183,37 +197,46 @@ function initializeGeographicMap(id, source, visiblePlaceIds, route) {
   routesToDraw.forEach((routeItem) => {
     const definition = routeLayersFor(source).find((item) => item.day === routeItem.day);
     const routePlaces = (definition?.placeIds || []).map((placeId) => placeLayersFor(source).find((place) => place.id === placeId)).filter((place) => place?.geo);
-    const points = routePlaces.map((place) => [Number(place.geo.lat), Number(place.geo.lng)]);
+    const points = routePlaces.map((place) => projectGeo(place.geo));
     const dayData = state.data.days.find((item) => item.day === routeItem.day);
     const scheduledMode = dayData?.schedule.find((item) => ["drive","walk","hike","train","rail","flight","rental-car"].includes(item.type))?.type;
     const mode = dayData?.date >= "2026-12-20" && routeItem.day < 17 ? "drive" : scheduledMode || (routeItem.day < 4 ? "train" : "drive");
     const isActiveRoute = !route || routeItem.day === route.day;
     const transportMarker = (position) => {
       const icon = window.L.divIcon({ className: "transport-map-marker", html: `<span style="--transport-color:${routeItem.color}" title="Day ${routeItem.day} · ${transportNames[mode] || mode}">${transportIcon(mode)}</span>`, iconSize: [26,26], iconAnchor: [13,13] });
-      window.L.marker(position, { icon, interactive: false, opacity: isActiveRoute ? 1 : .16 }).addTo(map);
+      window.L.marker(position, { icon, interactive: false, opacity: isActiveRoute ? 1 : .12 }).addTo(map);
     };
     if (points.length > 1) {
       const isHotelTransfer = routePlaces.some((place) => place.category === "hotel") && routePlaces[0].id !== routePlaces.at(-1).id;
       window.L.polyline(points, { className: `journey-route-line${isActiveRoute ? " is-active" : " is-dimmed"}`, color: routeItem.color, weight: route && isActiveRoute ? 4 : 2.5, opacity: isActiveRoute ? .92 : .14, dashArray: isHotelTransfer ? null : "4 8", lineCap: "round", interactive: false }).addTo(map);
-      const middle = [(points[0][0] + points.at(-1)[0]) / 2, (points[0][1] + points.at(-1)[1]) / 2];
-      transportMarker(middle);
-    } else if (points.length === 1) {
-      window.L.circle(points[0], { className: `journey-local-loop${isActiveRoute ? " is-active" : " is-dimmed"}`, radius: route && isActiveRoute ? 9000 : 6000, color: routeItem.color, weight: isActiveRoute ? 3 : 2, opacity: isActiveRoute ? .84 : .12, fill: false, dashArray: "3 7", interactive: false }).addTo(map);
+      const middle = window.L.latLng((points[0].lat + points.at(-1).lat) / 2, (points[0].lng + points.at(-1).lng) / 2);
+      if (isActiveRoute) transportMarker(middle);
+    } else if (points.length === 1 && route && isActiveRoute) {
+      window.L.circle(points[0], { className: "journey-local-loop is-active", radius: 32, color: routeItem.color, weight: 3, opacity: .84, fill: false, dashArray: "3 7", interactive: false }).addTo(map);
       const angle = routeItem.day * 2.399;
-      transportMarker([points[0][0] + Math.sin(angle) * .065, points[0][1] + Math.cos(angle) * .08]);
+      transportMarker(window.L.latLng(points[0].lat + Math.sin(angle) * 26, points[0].lng + Math.cos(angle) * 34));
     }
   });
-  if (coordinates.length > 1) {
-    activeGeographicBounds = window.L.latLngBounds(coordinates).pad(route ? .32 : .16);
-    map.fitBounds(activeGeographicBounds, { padding: [24, 24], maxZoom: route ? 9.5 : 7.5 });
+  map.fitBounds(imageBounds, { padding: [0, 0], animate: false });
+  const fullMapZoom = map.getZoom();
+  map.setMinZoom(fullMapZoom);
+  map.setMaxZoom(fullMapZoom + 4);
+  if (!route) {
+    activeGeographicBounds = imageBounds;
+  } else if (coordinates.length > 1) {
+    activeGeographicBounds = window.L.latLngBounds(coordinates).pad(.72);
+    map.fitBounds(activeGeographicBounds, { padding: [42, 42], maxZoom: fullMapZoom + 2.25, animate: false });
   } else if (coordinates.length === 1) {
-    activeGeographicBounds = window.L.latLngBounds(coordinates);
-    map.setView(coordinates[0], 9);
+    const point = coordinates[0];
+    activeGeographicBounds = window.L.latLngBounds([
+      [point.lat - 155, point.lng - 225],
+      [point.lat + 155, point.lng + 225]
+    ]);
+    map.fitBounds(activeGeographicBounds, { padding: [36, 36], maxZoom: fullMapZoom + 2, animate: false });
   } else {
-    activeGeographicBounds = null;
-    map.fitBounds(regionalBounds, { padding: [20,20] });
+    activeGeographicBounds = imageBounds;
   }
-  window.setTimeout(() => map.invalidateSize(), 80);
+  window.setTimeout(() => { map.invalidateSize(); if (!route) map.fitBounds(imageBounds, { padding: [0, 0], animate: false }); }, 80);
 }
 
 function activateDayMaps(root) {

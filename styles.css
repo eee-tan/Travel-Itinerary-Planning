@@ -989,17 +989,22 @@ button:focus-visible,a:focus-visible {outline:2px solid var(--lake);outline-offs
 .journey-route-line.is-active,.journey-local-loop.is-active {
   filter: drop-shadow(0 1px 1px rgba(255,255,255,.92)) drop-shadow(0 2px 3px rgba(32,54,58,.24));
 }
-.leaflet-category-marker { background: transparent; border: 0; filter: drop-shadow(0 5px 6px rgba(34,46,44,.18)); }
-.leaflet-category-marker > span {
-  width: 38px; height: 34px; border: 1px solid #d8d5c8; border-radius: 13px;
-  color: #61726e; background: #fffdf7; box-shadow: inset 0 1px 0 white,0 3px 8px rgba(42,54,51,.12);
+.leaflet-category-marker { width: auto !important; background: transparent; border: 0; filter: drop-shadow(0 5px 6px rgba(34,46,44,.18)); }
+.leaflet-category-marker > .map-place-sticker {
+  width: max-content; max-width: 170px; height: 36px; padding: 3px 9px 3px 3px;
+  display: flex; align-items: center; gap: 6px; border: 1px solid #d8d5c8; border-radius: 13px;
+  color: #435550; background: rgba(255,253,247,.94); box-shadow: inset 0 1px 0 white,0 3px 8px rgba(42,54,51,.12);
+  transform-origin: 18px 18px;
 }
-.leaflet-category-marker svg { width: 18px; height: 18px; stroke-width: 1.55; }
-.leaflet-category-marker > .map-place-dot--hotel { color: #89694f; background: #fffaf2; border-color: #dccdbd; }
-.leaflet-category-marker > .map-place-dot--noodles,.leaflet-category-marker > .map-place-dot--bbq { color: #a96455; background: #fff6ef; border-color: #e4c8ba; }
-.leaflet-category-marker > .map-place-dot--attraction { color: #516f67; background: #f5faf5; border-color: #c7d6cc; }
-.leaflet-category-marker > .map-place-dot--airport { color: #587184; background: #f4f8fa; border-color: #c6d3da; }
-.leaflet-category-marker > .map-place-dot--city { color: #6e6680; background: #f8f5fa; border-color: #d4cddd; }
+.map-place-sticker > i { width: 28px; height: 28px; flex: 0 0 28px; display: grid; place-items: center; border-radius: 10px; }
+.map-place-sticker > b { overflow: hidden; font: 700 9px/1.15 Georgia,"Times New Roman",serif; text-overflow: ellipsis; white-space: nowrap; }
+.leaflet-category-marker > .map-place-sticker.is-left { flex-direction: row-reverse; transform: translateX(calc(-100% + 38px)); }
+.map-place-sticker svg { width: 15px; height: 15px; stroke-width: 1.55; }
+.map-place-sticker > .map-place-dot--hotel { color: #89694f; background: #f4e8da; }
+.map-place-sticker > .map-place-dot--noodles,.map-place-sticker > .map-place-dot--bbq { color: #a96455; background: #f8e3d9; }
+.map-place-sticker > .map-place-dot--attraction { color: #516f67; background: #e4eee6; }
+.map-place-sticker > .map-place-dot--airport { color: #587184; background: #e4edf1; }
+.map-place-sticker > .map-place-dot--city { color: #6e6680; background: #ebe6ef; }
 
 .transport-map-marker { filter: drop-shadow(0 4px 5px rgba(34,46,44,.14)); }
 .transport-map-marker span {
@@ -1026,10 +1031,19 @@ button:focus-visible,a:focus-visible {outline:2px solid var(--lake);outline-offs
 
 @media (max-width: 699px) {
   .journey-map-layout { padding: 7px; }
+  .accurate-map.handdrawn-map { height: clamp(248px,72vw,292px); min-height: 248px; }
   .relief-map-legend { right: 8px; bottom: 8px; width: 126px; padding: 8px; gap: 5px; border-radius: 11px; }
   .relief-map-legend > span { gap: 5px; font-size: 7.5px; }
   .relief-legend-place { width: 18px; height: 18px; flex-basis: 18px; }
   .relief-legend-place svg { width: 10px; height: 10px; }
+  .leaflet-category-marker > .map-place-sticker { max-width: 138px; height: 32px; padding-right: 7px; gap: 5px; border-radius: 11px; }
+  .map-place-sticker > i { width: 24px; height: 24px; flex-basis: 24px; border-radius: 8px; }
+  .map-place-sticker > b { font-size: 8px; }
+  .leaflet-category-marker > .map-place-sticker.is-left { transform: translateX(calc(-100% + 34px)); }
+  .is-overview .leaflet-category-marker > .map-place-sticker {
+    width: 30px; height: 30px; padding: 2px; border-radius: 10px; transform: none;
+  }
+  .is-overview .map-place-sticker > b { display: none; }
 }
 
 /* Keep these alignment guarantees last so component media rules cannot override them. */
