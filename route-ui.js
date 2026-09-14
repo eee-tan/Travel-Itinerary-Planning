@@ -6,9 +6,9 @@ const transportNames = {
   boat: "Boat", ferry: "Ferry", flight: "Flight", transfer: "Transfer"
 };
 const journeyColors = [
-  "#6f8190", "#9a765c", "#728263", "#a85e55", "#4f7891", "#846b91",
-  "#708b82", "#aa7b52", "#657899", "#887463", "#7a6b8d", "#5f8589",
-  "#9b645f", "#6e8568", "#8c704f", "#607b91", "#7e6a78"
+  "#1769aa", "#e67e22", "#2e8b57", "#c0392b", "#7d3c98", "#008fa3",
+  "#d4a017", "#d14f8b", "#4257b2", "#008577", "#9a572f", "#70a832",
+  "#e15b4f", "#254f87", "#c43d73", "#0096a6", "#6c49a8"
 ];
 
 function mapRouteDefinitions(source) {
@@ -44,40 +44,6 @@ function dailyViewportFor(source) {
   return { x: 0, y: 0, width: canvas.width, height: canvas.height };
 }
 
-function transportIcon(type) {
-  const icons = {
-    drive: '<path d="m5 9 2-5h10l2 5M4 9h16v9H4zM7 18v2m10-2v2M7 12h1m8 0h1"/>',
-    "cable-car": '<path d="m2 4 20-2M12 3v5M6 9h12l2 9H4zM6 18v3h12v-3M9 9v9m6-9v9"/>',
-    train: '<rect x="5" y="3" width="14" height="15" rx="3"/><path d="M5 10h14M12 3v7m-4 5h1m6 0h1M8 18l-3 4m11-4 3 4M7 20h10"/>',
-    hike: '<circle cx="14" cy="4" r="2"/><path d="m11 8 4 2 3 4m-7-6-3 6-4 1m7-3 3 4-1 6m-2-10-3 7-4 3M8 8l-2 3"/>',
-    boat: '<path d="M12 3v11M5 7h14v6M3 14l9-3 9 3-3 6H6zM2 22q3-3 5 0 3-3 5 0 3-3 5 0 3-3 5 0"/>',
-    "rental-car": '<path d="m3 10 2-5h9l2 5M2 10h15v8H2zM5 18v2m9-2v2M5 13h1m7 0h1M18 4h4m-2-2 2 2-2 2"/>',
-    flight: '<path d="M3 16 21 8M9 13 5 6l2-1 6 5m2-1 1-6 2-1 1 5M8 15l-1 4 2-1 3-4"/>'
-  };
-  const key = type === "rail" ? "train" : type === "ferry" ? "boat" : type === "walk" ? "hike" : ["return", "transfer"].includes(type) ? "drive" : type;
-  return `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${icons[key] || icons.drive}</svg>`;
-}
-
-function placeCategoryIcon(category) {
-  const icons = {
-    hotel: '<path d="M4 19V8h5a4 4 0 0 1 4 4v7M4 14h16v5M7 11h2M3 21v-2m18 2v-2"/>',
-    noodles: '<path d="M4 11h16c0 5-3 8-8 8s-8-3-8-8Zm2 10h12M8 3c2 2-2 3 0 5m5-5c2 2-2 3 0 5m5-5c2 2-2 3 0 5"/>',
-    bbq: '<path d="M5 11h14a7 7 0 0 1-14 0Zm3 7-2 4m10-4 2 4M8 7l2-4m4 4 2-4"/>',
-    airport: '<path d="m3 16 18-8M9 13 5 6l2-1 6 5m2-1 1-6 2-1 1 5M8 15l-1 4 2-1 3-4"/>',
-    attraction: '<path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z"/>',
-    city: '<path d="M5 21V8h6v13M11 4h8v17M8 11h1m-1 3h1m-1 3h1m5-9h2m-2 4h2m-2 4h2M3 21h18"/>'
-  };
-  return `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${icons[category] || icons.attraction}</svg>`;
-}
-
-function dailyPointRole(layout, placeId, index) {
-  if (layout.roles?.[placeId]) return layout.roles[placeId];
-  if (layout.places.length === 1) return "Start / finish";
-  if (index === 0) return "Start";
-  if (index === layout.places.length - 1) return "Finish";
-  return "Via";
-}
-
 const posterMap = {
   width: 1585, height: 992,
   south: 34, west: 135.52, north: 38.13, east: 140.67
@@ -90,72 +56,52 @@ function posterPoint(geo) {
   };
 }
 
-function organicRoutePath(points, dayNumber) {
-  if (points.length === 1) {
-    const point = points[0];
-    const radius = 18 + (dayNumber % 3) * 7;
-    const offsetX = ((dayNumber % 4) - 1.5) * 9;
-    const offsetY = ((dayNumber % 5) - 2) * 7;
-    const x = point.x + offsetX;
-    const y = point.y + offsetY;
-    return `M ${x - radius} ${y} C ${x - radius} ${y - radius * .7}, ${x - radius * .4} ${y - radius}, ${x} ${y - radius} C ${x + radius * .7} ${y - radius}, ${x + radius} ${y - radius * .35}, ${x + radius} ${y} C ${x + radius} ${y + radius * .72}, ${x + radius * .35} ${y + radius}, ${x} ${y + radius}`;
-  }
+function organicRoutePath(points) {
   if (points.length < 2) return "";
-  return points.slice(1).reduce((path, point, index) => {
+  let path = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const previous = points[index - 1] || points[index];
     const start = points[index];
-    const dx = point.x - start.x;
-    const dy = point.y - start.y;
-    const distance = Math.max(1, Math.hypot(dx, dy));
-    const bend = Math.min(92, Math.max(28, distance * .18)) * ((dayNumber + index) % 2 ? 1 : -1);
-    const nx = -dy / distance;
-    const ny = dx / distance;
-    const c1 = { x: start.x + dx * .34 + nx * bend, y: start.y + dy * .34 + ny * bend };
-    const c2 = { x: start.x + dx * .68 + nx * bend, y: start.y + dy * .68 + ny * bend };
-    return `${path} C ${c1.x.toFixed(1)} ${c1.y.toFixed(1)}, ${c2.x.toFixed(1)} ${c2.y.toFixed(1)}, ${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
-  }, `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`);
+    const finish = points[index + 1];
+    const next = points[index + 2] || finish;
+    const control1 = { x: start.x + (finish.x - previous.x) / 6, y: start.y + (finish.y - previous.y) / 6 };
+    const control2 = { x: finish.x - (next.x - start.x) / 6, y: finish.y - (next.y - start.y) / 6 };
+    path += ` C ${control1.x.toFixed(1)} ${control1.y.toFixed(1)}, ${control2.x.toFixed(1)} ${control2.y.toFixed(1)}, ${finish.x.toFixed(1)} ${finish.y.toFixed(1)}`;
+  }
+  return path;
 }
 
-function routeMode(dayData, dayNumber) {
-  const scheduled = dayData?.schedule.find((item) => ["drive", "walk", "hike", "train", "rail", "flight", "rental-car"].includes(item.type))?.type;
-  return dayData?.date >= "2026-12-20" && dayNumber < 17 ? "drive" : scheduled || (dayNumber < 4 ? "train" : "drive");
-}
+const posterRouteWaypoints = {
+  1: [[35.5494,139.7798],[35.6285,139.7397],[35.6762,139.6503]],
+  2: [[35.6762,139.6503],[35.6938,139.7034],[35.7148,139.7967],[35.6812,139.7671]],
+  3: [[35.6762,139.6503],[35.4437,139.6380],[35.3192,139.5467],[35.4437,139.6380],[35.6762,139.6503]],
+  4: [[35.6762,139.6503],[35.8617,139.6455],[36.3224,139.0034],[36.5451,138.8885],[36.7950,138.9680]],
+  5: [[36.7950,138.9680],[36.8370,138.9320],[36.8490,139.0550],[36.7950,138.9680]],
+  6: [[36.7950,138.9680],[37.0436,138.8475],[37.4460,138.8512],[37.9162,139.0364],[37.1478,138.2361],[36.6953,137.2137],[36.5810,136.9630]],
+  7: [[36.5810,136.9630],[36.5613,136.6562],[36.5947,136.6256],[36.5810,136.9630]],
+  8: [[36.5810,136.9630],[36.2606,136.9062],[36.1428,137.2520],[36.5810,136.9630]],
+  9: [[36.5810,136.9630],[36.2606,136.9062],[36.1428,137.2520],[35.7847,137.2394],[35.3912,136.7223],[35.1690,136.8890]],
+  10: [[35.1690,136.8890],[35.3882,136.9394],[35.2899,136.9723],[35.1690,136.8890]],
+  11: [[35.1690,136.8890],[35.4550,137.4121],[35.5149,137.8203],[36.2380,137.9720],[36.5650,138.1970]],
+  12: [[36.5650,138.1970],[36.6513,138.1875],[36.7326,138.4622],[36.5650,138.1970]],
+  13: [[36.5650,138.1970],[36.2380,137.9720],[35.6642,138.5684],[35.1920,139.0260]],
+  14: [[35.1920,139.0260],[35.2440,139.0070],[35.2324,138.9950],[35.2048,139.0228],[35.1920,139.0260]],
+  15: [[35.1920,139.0260],[35.4437,139.3625],[35.6049,139.5037],[35.9060,139.4820]],
+  16: [[35.9060,139.4820],[35.9174,139.4858],[35.9251,139.4721],[35.9060,139.4820]],
+  17: [[35.9060,139.4820],[35.6812,139.7671],[35.6285,139.7397],[35.5494,139.7798]]
+};
 
 function posterMapMarkup(source, visiblePlaceIds, selectedRoute) {
-  const allPlaces = placeLayersFor(source);
-  const visiblePlaces = visiblePlaceIds.map((id) => allPlaces.find((place) => place.id === id)).filter((place) => place?.geo);
   const routeMarkup = mapRoutes.map((routeItem) => {
-    const definition = routeLayersFor(source).find((item) => item.day === routeItem.day);
-    const routePlaces = (definition?.placeIds || []).map((id) => allPlaces.find((place) => place.id === id)).filter((place) => place?.geo);
-    const points = routePlaces.map((place) => posterPoint(place.geo));
-    const path = organicRoutePath(points, routeItem.day);
+    const points = (posterRouteWaypoints[routeItem.day] || []).map(([lat, lng]) => posterPoint({ lat, lng }));
+    const path = organicRoutePath(points);
     if (!path) return "";
     const isActive = !selectedRoute || routeItem.day === selectedRoute.day;
-    const isLocal = points.length === 1;
-    return `<path class="poster-route${isActive ? " is-active" : " is-dimmed"}${isLocal ? " is-local" : ""}" data-poster-route-day="${routeItem.day}" d="${path}" style="--day-color:${routeItem.color}"/>`;
-  }).join("");
-  const transportMarkup = mapRoutes.map((routeItem) => {
-    if (selectedRoute && routeItem.day !== selectedRoute.day) return "";
-    const definition = routeLayersFor(source).find((item) => item.day === routeItem.day);
-    const routePlaces = (definition?.placeIds || []).map((id) => allPlaces.find((place) => place.id === id)).filter((place) => place?.geo);
-    if (routePlaces.length < 2) return "";
-    const points = routePlaces.map((place) => posterPoint(place.geo));
-    const start = points[0];
-    const finish = points.at(-1);
-    const point = { x: (start.x + finish.x) / 2, y: (start.y + finish.y) / 2 };
-    const dayData = state.data.days.find((item) => item.day === routeItem.day);
-    const mode = routeMode(dayData, routeItem.day);
-    return `<span class="poster-transport-marker" style="--left:${(point.x / posterMap.width * 100).toFixed(3)}%;--top:${(point.y / posterMap.height * 100).toFixed(3)}%;--day-color:${routeItem.color}" title="Day ${routeItem.day} · ${escapeHtml(transportNames[mode] || mode)}">${transportIcon(mode)}</span>`;
-  }).join("");
-  const placeMarkup = visiblePlaces.map((place, index) => {
-    const point = posterPoint(place.geo);
-    const category = place.category || "attraction";
-    const [label] = placeOptions(source, place.id)[0];
-    return `<button type="button" class="poster-place-marker is-${escapeHtml(category)}" style="--left:${(point.x / posterMap.width * 100).toFixed(3)}%;--top:${(point.y / posterMap.height * 100).toFixed(3)}%" data-place-id="${escapeHtml(place.id)}" data-map-region="${escapeHtml(source.id)}" data-place-role="${escapeHtml(dailyPointRole({ places: visiblePlaceIds }, place.id, index))}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}">${placeCategoryIcon(category)}</button>`;
+    return `<path class="poster-route${isActive ? " is-active" : " is-dimmed"}" data-poster-route-day="${routeItem.day}" d="${path}" style="--day-color:${routeItem.color}"/>`;
   }).join("");
   return `<div class="poster-map" role="group" aria-label="${selectedRoute ? `Day ${selectedRoute.day}` : "17-day route overview"} on a Kanto and Chubu relief map">
     <img src="assets/maps/kanto-chubu-relief-clean.png?v=20260914-2" alt="" draggable="false">
     <svg class="poster-route-layer" viewBox="0 0 ${posterMap.width} ${posterMap.height}" aria-hidden="true">${routeMarkup}</svg>
-    <div class="poster-marker-layer">${transportMarkup}${placeMarkup}</div>
   </div>`;
 }
 
@@ -177,22 +123,13 @@ function travelMapMarkup(source, route) {
 }
 
 function posterLegendMarkup(route) {
-  const day = route && state.data.days.find((candidate) => candidate.day === route.day);
   const routes = route ? [route] : mapRoutes;
   const dates = routes.map((routeItem) => {
     const routeDay = state.data.days.find((candidate) => candidate.day === routeItem.day);
     const [, month, date] = routeDay?.date?.split("-") || [];
     return routeDay ? `<button type="button" data-poster-legend-day="${routeItem.day}" style="--day-color:${routeItem.color}" aria-label="Highlight Day ${routeItem.day}, ${date}/${month}"><i></i><span>${date}/${month}</span></button>` : "";
   }).join("");
-  const travelMode = day ? routeMode(day, day.day) : null;
   return `<aside class="poster-map-legend" aria-label="Map legend">
-    <div class="poster-legend-symbols">
-      <span><i class="poster-legend-place is-hotel">${placeCategoryIcon("hotel")}</i>Hotel</span>
-      <span><i class="poster-legend-place is-restaurant">${placeCategoryIcon("noodles")}</i>Restaurant</span>
-      <span><i class="poster-legend-place is-attraction">${placeCategoryIcon("attraction")}</i>Attraction</span>
-      <span><i class="poster-legend-route"></i>Curved route</span>
-      ${travelMode ? `<span><i class="poster-legend-transport">${transportIcon(travelMode)}</i>${escapeHtml(transportNames[travelMode] || travelMode)}</span>` : ""}
-    </div>
     <div class="poster-date-legend" aria-label="Route colors by date">${dates}</div>
   </aside>`;
 }
