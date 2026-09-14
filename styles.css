@@ -609,6 +609,35 @@ button:focus-visible,a:focus-visible {outline:2px solid var(--lake);outline-offs
   cursor: pointer;
 }
 .itinerary-edit-button[aria-pressed="true"] { color: white; border-color: var(--lake); background: var(--lake); }
+.itinerary-edit-toolbar {
+  position: sticky;
+  top: calc(52px + var(--safe-top));
+  z-index: 12;
+  min-width: 0;
+  margin: 0 0 8px 48px;
+  padding: 7px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  border: 1px solid rgba(174,197,197,.9);
+  border-radius: 11px;
+  background: rgba(243,246,242,.94);
+  box-shadow: 0 7px 20px rgba(19,38,47,.08);
+  backdrop-filter: blur(10px);
+}
+.itinerary-edit-toolbar > span { margin-right: auto; color: var(--muted); font-size: 9px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.itinerary-edit-toolbar button {
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid #b8cdce;
+  border-radius: 999px;
+  color: #315e65;
+  background: rgba(255,255,255,.85);
+  font-size: 9px;
+  font-weight: 720;
+  cursor: pointer;
+}
 .day-title-editor input[readonly] { pointer-events: none; outline-color: transparent; }
 .day-title-editor input[readonly]:hover { outline-color: transparent; }
 .day-card.is-editing { border-radius: 10px; background: rgba(255,255,255,.24); }
@@ -1062,7 +1091,7 @@ button:focus-visible,a:focus-visible {outline:2px solid var(--lake);outline-offs
 .prep-add-item { justify-self: start; }
 .prep-add-section { margin-top: 7px; }
 
-.itinerary-section.is-editing .day-toggle { cursor: default; }
+.itinerary-section.is-editing .day-toggle { cursor: pointer; }
 .itinerary-section.is-editing .day-card-heading { background: rgba(255,255,255,.18); }
 .schedule-drag-handle {
   position: absolute;
@@ -1146,6 +1175,31 @@ body.is-touch-dragging { user-select: none; -webkit-user-select: none; cursor: g
   .prep-topic-note { padding-inline: 7px; }
   .prep-subitem { grid-template-columns: 23px minmax(0,1fr) 26px; gap: 6px; }
   .schedule-drag-handle { left: -43px; width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
+  .itinerary-section,
+  .itinerary-section .section-disclosure__body,
+  .timeline,
+  .day-card,
+  .day-card-heading,
+  .day-detail,
+  .schedule,
+  .schedule-item,
+  .schedule-content,
+  .schedule-map-links { min-width: 0; max-width: 100%; }
+  .itinerary-section { overflow-x: clip; }
+  .itinerary-edit-toolbar { top: calc(50px + var(--safe-top)); margin-left: 38px; }
+  .day-card { padding-left: 38px; }
+  .day-toggle { grid-template-columns: minmax(0,1fr) 38px; padding-right: 0; }
+  .day-title-editor { max-width: 100%; }
+  .day-title-editor input { width: 100%; max-width: 100%; }
+  .schedule-item { width: 100%; padding-left: 76px; padding-right: 0; overflow: visible; }
+  .schedule-item::before { left: 64px; }
+  .schedule-item::after { left: 60px; }
+  .schedule-time { width: 56px; }
+  .schedule-time-editor { width: 56px; max-width: 56px; }
+  .schedule-text-editor { min-width: 0; max-width: 100%; }
+  .schedule-content { overflow-wrap: anywhere; }
+  .schedule-location-chip { min-width: 0; max-width: 100%; }
+  .schedule-location-chip .schedule-map-link { min-width: 0; max-width: calc(100% - 36px); }
 }
 
 /* Editable itinerary locations: compact tags in view mode, touch-safe controls in Edit mode. */

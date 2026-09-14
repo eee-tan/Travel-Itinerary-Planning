@@ -13,7 +13,13 @@
     },
     "language": "en",
     "persistence": {
-      "mode": "local"
+      "mode": "d1",
+      "apiBase": "/api/trip",
+      "sharedCollections": [
+        "todos",
+        "tickets",
+        "ledger"
+      ]
     }
   },
   "metadata": {

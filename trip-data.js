@@ -14,7 +14,13 @@ window.TRAVEL_PLAN_DATA_BUNDLE = {
     },
     "language": "en",
     "persistence": {
-      "mode": "local"
+      "mode": "d1",
+      "apiBase": "/api/trip",
+      "sharedCollections": [
+        "todos",
+        "tickets",
+        "ledger"
+      ]
     }
   },
   "metadata": {

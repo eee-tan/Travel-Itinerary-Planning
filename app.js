@@ -12,6 +12,7 @@ const state = {
   itineraryLocations: {},
   editingItinerary: false,
   expandedDayBeforeEdit: null,
+  collapsedEditDays: new Set(),
   editingLocationKey: null,
   appointmentMedia: {},
   appointmentEdits: {},
@@ -53,6 +54,12 @@ function normalizeTripConfig(raw = {}) {
 
 function moduleEnabled(name) {
   return Boolean(state.config && state.config.modules?.[name] === true);
+}
+
+function sharedBackendAvailable() {
+  return state.config?.persistence?.mode === "d1"
+    && location.protocol === "https:"
+    && !["localhost", "127.0.0.1"].includes(location.hostname);
 }
 
 function applyModuleConfig() {
@@ -104,6 +111,17 @@ function formatCompactDate(dateString) {
 function formatFullCompactDate(dateString) {
   const date = new Date(`${dateString}T12:00:00`);
   return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }).format(date);
+}
+
+function normalizeItineraryTime(value) {
+  const raw = String(value || "").trim();
+  const digits = raw.replace(/\D/g, "");
+  if (/^\d{4}$/.test(raw) || (digits.length === 4 && !raw.includes(":"))) {
+    const hours = Number(digits.slice(0, 2));
+    const minutes = Number(digits.slice(2));
+    if (hours <= 23 && minutes <= 59) return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+  }
+  return raw;
 }
 
 function todayForTrip() {
@@ -436,7 +454,9 @@ function inlineTicketMarkup(ticket) {
 function dayCard(day) {
   const today = todayForTrip();
   const isToday = day.date === today;
-  const expanded = state.editingItinerary || state.expandedDay === day.day;
+  const expanded = state.editingItinerary
+    ? !state.collapsedEditDays.has(day.day)
+    : state.expandedDay === day.day;
   const dayKey = itineraryDayKey(day);
   const schedule = (day.schedule || []).map((item) => {
     const noteKey = `${dayKey}:${item.id}`;
@@ -490,8 +510,8 @@ function dayCard(day) {
       <label class="day-title-editor"><span class="sr-only">Day ${day.day} title</span><input data-day-title="${escapeHtml(dayKey)}" value="${escapeHtml(state.dayTitles[dayKey] || day.title)}" maxlength="100" aria-label="${state.editingItinerary ? "Edit" : "Locked"} Day ${day.day} title" ${state.editingItinerary ? "" : 'readonly aria-readonly="true"'}></label>
       ${ticketSummary}
       </div>
-      ${state.editingItinerary ? `<div class="day-drop-zone" data-drop-day="${day.day}">Drop itinerary here</div>` : ""}
       <div class="day-detail" id="day-detail-${day.day}" ${expanded ? "" : "hidden"}>
+        ${state.editingItinerary ? `<div class="day-drop-zone" data-drop-day="${day.day}">Drop itinerary here</div>` : ""}
         <ol class="schedule">${schedule}</ol>
         ${costs ? `<div class="costs">${costs}</div>` : ""}
       </div>
@@ -654,8 +674,10 @@ function renderTimeline() {
     if (!state.editingItinerary) {
       state.expandedDayBeforeEdit = state.expandedDay;
       state.editingItinerary = true;
+      state.collapsedEditDays.clear();
     } else {
       state.editingItinerary = false;
+      state.collapsedEditDays.clear();
       state.editingLocationKey = null;
       state.expandedDay = state.expandedDayBeforeEdit;
       state.expandedDayBeforeEdit = null;
@@ -665,8 +687,23 @@ function renderTimeline() {
     renderTimeline();
   };
   $("#itinerary").classList.toggle("is-editing", state.editingItinerary);
-  $("#timeline").innerHTML = state.data.days.map(dayCard).join("");
+  const editToolbar = state.editingItinerary ? `<div class="itinerary-edit-toolbar" role="toolbar" aria-label="Itinerary day display controls">
+    <span>Edit mode</span>
+    <button type="button" data-expand-all-days>Expand all</button>
+    <button type="button" data-collapse-all-days>Collapse all</button>
+  </div>` : "";
+  $("#timeline").innerHTML = editToolbar + state.data.days.map(dayCard).join("");
   $("#timeline").onclick = (event) => {
+    if (event.target.closest("[data-expand-all-days]")) {
+      state.collapsedEditDays.clear();
+      renderTimeline();
+      return;
+    }
+    if (event.target.closest("[data-collapse-all-days]")) {
+      state.collapsedEditDays = new Set(state.data.days.map((day) => day.day));
+      renderTimeline();
+      return;
+    }
     const mediaButton = event.target.closest("[data-media-src]");
     if (mediaButton) { openMediaLightbox(mediaButton.dataset.mediaSrc, mediaButton.dataset.mediaAlt); return; }
     const removePhoto = event.target.closest("[data-remove-schedule-photo]");
@@ -706,10 +743,15 @@ function renderTimeline() {
     }
     const toggle = event.target.closest(".day-toggle");
     if (!toggle) return;
-    if (state.editingItinerary) return;
     const card = toggle.closest(".day-card");
     const dayNumber = Number(card.dataset.day);
     const wasExpanded = toggle.getAttribute("aria-expanded") === "true";
+    if (state.editingItinerary) {
+      if (wasExpanded) state.collapsedEditDays.add(dayNumber);
+      else state.collapsedEditDays.delete(dayNumber);
+      renderTimeline();
+      return;
+    }
     $$(".day-toggle", $("#timeline")).forEach((button) => button.setAttribute("aria-expanded", "false"));
     $$(".day-detail", $("#timeline")).forEach((detail) => { detail.hidden = true; });
     if (!wasExpanded) {
@@ -764,7 +806,10 @@ function renderTimeline() {
       const day = state.data.days.find((item) => item.day === Number(scheduleItem?.dataset.sourceDay));
       const item = day?.schedule?.find((entry) => String(entry.id) === scheduleItem?.dataset.scheduleId);
       if (item) {
-        item[scheduleInput.dataset.scheduleField] = scheduleInput.value.trim() || "TBD";
+        const nextValue = scheduleInput.dataset.scheduleField === "time"
+          ? normalizeItineraryTime(scheduleInput.value)
+          : scheduleInput.value.trim();
+        item[scheduleInput.dataset.scheduleField] = nextValue || "TBD";
         scheduleInput.value = item[scheduleInput.dataset.scheduleField];
         captureItinerarySchedule();
         savePersonalState();
@@ -797,6 +842,15 @@ function renderTimeline() {
     else state.purchasedTickets.delete(checkbox.value);
     saveTicketState(checkbox.value, checkbox.checked);
     updateInlineTicketState(checkbox.value, checkbox.checked);
+  };
+  $("#timeline").oninput = (event) => {
+    const timeInput = event.target.closest('[data-schedule-field="time"]');
+    if (!timeInput || !state.editingItinerary) return;
+    const formatted = normalizeItineraryTime(timeInput.value);
+    if (formatted !== timeInput.value && /^\d{2}:\d{2}$/.test(formatted)) {
+      timeInput.value = formatted;
+      timeInput.setSelectionRange?.(formatted.length, formatted.length);
+    }
   };
   $("#timeline").onkeydown = (event) => {
     const noteInput = event.target.closest("[data-schedule-note]");
@@ -889,8 +943,11 @@ window.openItineraryDay = (dayNumber, { scroll = true } = {}) => {
   const card = $(`.day-card[data-day="${Number(dayNumber)}"]`);
   if (!card) return;
   if (state.editingItinerary) {
-    $$(".day-toggle", $("#timeline")).forEach((button) => button.setAttribute("aria-expanded", "true"));
-    $$(".day-detail", $("#timeline")).forEach((detail) => { detail.hidden = false; });
+    state.collapsedEditDays.delete(Number(dayNumber));
+    const toggle = $(".day-toggle", card);
+    toggle?.setAttribute("aria-expanded", "true");
+    const detail = $(".day-detail", card);
+    if (detail) detail.hidden = false;
     if (scroll) card.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
@@ -1120,6 +1177,121 @@ function setupAppointmentDialog() {
 
 function personalStorageKey(type) { return `travel-plan:${type}:${state.data.metadata.tripId}`; }
 
+let workspacePushTimer = 0;
+let workspaceLastUpdatedAt = null;
+let workspaceSyncReady = false;
+
+function personalStateSnapshot() {
+  return {
+    schemaVersion: 1,
+    savedAt: new Date().toISOString(),
+    dayNotes: state.dayNotes,
+    dayPhotos: state.dayPhotos,
+    dayTitles: state.dayTitles,
+    itinerarySchedule: state.itinerarySchedule,
+    itineraryLocations: state.itineraryLocations,
+    appointmentMedia: state.appointmentMedia,
+    appointmentEdits: state.appointmentEdits,
+    customAppointments: state.customAppointments,
+    expenses: state.expenses
+  };
+}
+
+function mergeInitialWorkspace(remotePayload, localPayload) {
+  const localWins = (localPayload.customAppointments?.length || 0) > (remotePayload.customAppointments?.length || 0);
+  const primary = localWins ? remotePayload : localPayload;
+  const secondary = localWins ? localPayload : remotePayload;
+  const objectFields = ["dayNotes", "dayPhotos", "dayTitles", "itinerarySchedule", "itineraryLocations", "appointmentMedia", "appointmentEdits"];
+  const merged = { ...primary, ...secondary, schemaVersion: 1, savedAt: new Date().toISOString() };
+  objectFields.forEach((field) => { merged[field] = { ...(primary[field] || {}), ...(secondary[field] || {}) }; });
+  const mergeRecords = (first = [], second = []) => [...new Map([...first, ...second].map((item) => [String(item?.id || JSON.stringify(item)), item])).values()];
+  merged.customAppointments = mergeRecords(remotePayload.customAppointments, localPayload.customAppointments);
+  merged.expenses = mergeRecords(remotePayload.expenses, localPayload.expenses);
+  return merged;
+}
+
+function applyPersonalStateSnapshot(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return false;
+  const objectFields = ["dayNotes", "dayPhotos", "dayTitles", "itinerarySchedule", "itineraryLocations", "appointmentMedia", "appointmentEdits"];
+  objectFields.forEach((field) => { state[field] = payload[field] && typeof payload[field] === "object" && !Array.isArray(payload[field]) ? structuredClone(payload[field]) : {}; });
+  state.customAppointments = Array.isArray(payload.customAppointments) ? structuredClone(payload.customAppointments) : [];
+  state.expenses = Array.isArray(payload.expenses) ? structuredClone(payload.expenses) : structuredClone(state.data.expenses?.items || []);
+  applySavedItinerarySchedule();
+  return true;
+}
+
+function workspaceEndpoint() {
+  const base = String(state.config?.persistence?.apiBase || "/api/trip").replace(/\/+$/, "");
+  return `${base}/${encodeURIComponent(state.data.metadata.tripId)}?workspace=1`;
+}
+
+async function requestWorkspace(method = "GET", payload) {
+  const response = await fetch(workspaceEndpoint(), method === "GET" ? { cache: "no-store" } : {
+    method,
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ payload })
+  });
+  const type = response.headers.get("content-type") || "";
+  if (!response.ok || !type.includes("application/json")) throw new Error(`Workspace sync API unavailable (${response.status})`);
+  return response.json();
+}
+
+function renderPersonalViews() {
+  if (moduleEnabled("itinerary")) renderTimeline();
+  if (moduleEnabled("driving")) renderRental();
+  if (moduleEnabled("ledger")) renderExpenses();
+}
+
+async function loadWorkspaceState({ refreshViews = false } = {}) {
+  if (!sharedBackendAvailable()) return;
+  if (state.editingItinerary || state.editingAppointmentId) return;
+  const remote = await requestWorkspace();
+  const migrationKey = personalStorageKey("workspace-migrated-v1");
+  const migrationComplete = localStorage.getItem(migrationKey) === "1";
+  if (!remote.payload) {
+    const created = await requestWorkspace("POST", personalStateSnapshot());
+    workspaceLastUpdatedAt = created.updatedAt || null;
+    localStorage.setItem(migrationKey, "1");
+  } else if (remote.updatedAt !== workspaceLastUpdatedAt) {
+    const nextPayload = migrationComplete ? remote.payload : mergeInitialWorkspace(remote.payload, personalStateSnapshot());
+    if (!migrationComplete && JSON.stringify(nextPayload) !== JSON.stringify(remote.payload)) {
+      const merged = await requestWorkspace("POST", nextPayload);
+      workspaceLastUpdatedAt = merged.updatedAt || remote.updatedAt || null;
+    } else {
+      workspaceLastUpdatedAt = remote.updatedAt || null;
+    }
+    applyPersonalStateSnapshot(nextPayload);
+    localStorage.setItem(migrationKey, "1");
+    savePersonalState({ syncRemote: false });
+    if (refreshViews) renderPersonalViews();
+  }
+  workspaceSyncReady = true;
+}
+
+function scheduleWorkspacePush() {
+  if (!workspaceSyncReady || !sharedBackendAvailable()) return;
+  window.clearTimeout(workspacePushTimer);
+  workspacePushTimer = window.setTimeout(async () => {
+    try {
+      const saved = await requestWorkspace("POST", personalStateSnapshot());
+      workspaceLastUpdatedAt = saved.updatedAt || workspaceLastUpdatedAt;
+    } catch (error) {
+      console.error("Cross-device workspace sync failed", error);
+    }
+  }, 450);
+}
+
+function setupWorkspaceRefresh() {
+  if (!sharedBackendAvailable()) return;
+  const refresh = () => {
+    if (document.visibilityState !== "visible") return;
+    loadWorkspaceState({ refreshViews: true }).catch((error) => console.error("Cross-device workspace refresh failed", error));
+  };
+  document.addEventListener("visibilitychange", refresh);
+  window.addEventListener("focus", refresh);
+  window.setInterval(refresh, 12000);
+}
+
 function itineraryDayKey(day) {
   return day.id || `day-${String(day.day).padStart(2, "0")}`;
 }
@@ -1152,7 +1324,7 @@ function loadPersonalState() {
   } catch { state.expenses = structuredClone(state.data.expenses?.items || []); }
 }
 
-function savePersonalState() {
+function savePersonalState({ syncRemote = true } = {}) {
   localStorage.setItem(personalStorageKey("day-notes"), JSON.stringify(state.dayNotes));
   localStorage.setItem(personalStorageKey("day-photos"), JSON.stringify(state.dayPhotos));
   localStorage.setItem(personalStorageKey("day-titles"), JSON.stringify(state.dayTitles));
@@ -1162,6 +1334,8 @@ function savePersonalState() {
   localStorage.setItem(personalStorageKey("appointment-edits"), JSON.stringify(state.appointmentEdits));
   localStorage.setItem(personalStorageKey("custom-appointments"), JSON.stringify(state.customAppointments));
   localStorage.setItem(personalStorageKey("expenses"), JSON.stringify(state.expenses));
+  localStorage.setItem(personalStorageKey("saved-at"), new Date().toISOString());
+  if (syncRemote) scheduleWorkspacePush();
 }
 
 const moneyText = (currency, amount) => new Intl.NumberFormat("en-SG", { style: "currency", currency, maximumFractionDigits: 2 }).format(Number(amount) || 0);
@@ -1268,6 +1442,7 @@ function createRuntimeAdapters() {
   const storage = window.TravelRuntimeStorage;
   if (!storage?.createAdapter) throw new Error("runtime-storage.js is required");
   const persistence = state.config.persistence || { mode: "local" };
+  const runtimeMode = sharedBackendAvailable() ? persistence.mode : "local";
   const sharedCollections = new Set(Array.isArray(persistence.sharedCollections)
     ? persistence.sharedCollections
     : ["todos", "tickets", "ledger"]);
@@ -1276,8 +1451,8 @@ function createRuntimeAdapters() {
     ...(moduleEnabled("todo") ? ["todos"] : []),
     ...(moduleEnabled("itinerary") ? ["tickets"] : [])
   ];
-  const localCollections = enabledCollections.filter((collection) => persistence.mode !== "d1" || !sharedCollections.has(collection));
-  const d1Collections = enabledCollections.filter((collection) => persistence.mode === "d1" && sharedCollections.has(collection));
+  const localCollections = enabledCollections.filter((collection) => runtimeMode !== "d1" || !sharedCollections.has(collection));
+  const d1Collections = enabledCollections.filter((collection) => runtimeMode === "d1" && sharedCollections.has(collection));
   const localAdapter = localCollections.length ? storage.createAdapter({ mode: "local", tripId, collections: localCollections }) : null;
   const d1Adapter = d1Collections.length ? storage.createAdapter({
     mode: "d1",
@@ -1636,6 +1811,7 @@ async function init() {
     window.TRAVEL_PLAN_CONFIG = state.config;
     window.TRAVEL_PLAN_DATA = state.data;
     loadPersonalState();
+    if (sharedBackendAvailable()) await loadWorkspaceState();
     setupMediaLightbox();
     setupAppointmentDialog();
     document.dispatchEvent(new CustomEvent("travel-data-ready", { detail: state.data }));
@@ -1662,6 +1838,7 @@ async function init() {
     if (moduleEnabled("driving")) renderRental();
     if (moduleEnabled("todo")) renderTravelPrep();
     if (moduleEnabled("ledger")) renderExpenses();
+    setupWorkspaceRefresh();
   } catch (error) {
     console.error("Travel data could not be loaded", error);
     $("#loading-error").hidden = false;
