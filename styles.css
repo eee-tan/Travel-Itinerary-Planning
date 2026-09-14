@@ -891,24 +891,10 @@ button:focus-visible,a:focus-visible {outline:2px solid var(--lake);outline-offs
 .handdrawn-map .leaflet-pane { filter: saturate(.8); }
 .handdrawn-map .leaflet-control-zoom { border: 1px solid rgba(78,99,96,.24); box-shadow: 0 3px 12px rgba(32,54,58,.1); }
 .handdrawn-map .leaflet-control-zoom a { border-color: var(--line); background: rgba(249,248,241,.9); }
-.map-paper-label { position: absolute; z-index: 350; right: 14px; bottom: 12px; color: rgba(66,85,79,.52); font: 760 12px/1.2 "Hiragino Mincho ProN",serif; letter-spacing: .16em; pointer-events: none; }
 .leaflet-overlay-pane path { vector-effect: non-scaling-stroke; }
-.handdrawn-land { stroke-dasharray: 8 3 13 2; }
 .transport-map-marker { background: transparent; border: 0; }
 .transport-map-marker span { width: 26px; height: 26px; display: grid; place-items: center; border: 2px solid white; border-radius: 50%; color: white; background: var(--transport-color); box-shadow: 0 3px 9px rgba(19,38,47,.24); }
 .transport-map-marker svg { width: 14px; height: 14px; }
-.map-legend { padding: 12px 10px; border-left: 1px solid rgba(91,108,103,.18); background: rgba(248,247,239,.82); overflow: auto; }
-.map-legend__icons,.map-legend__lines { display: grid; gap: 7px; padding-bottom: 10px; border-bottom: 1px solid rgba(91,108,103,.15); }
-.map-legend__lines { padding-top: 10px; }
-.map-legend__icons span,.map-legend__lines span { display: flex; align-items: center; gap: 6px; color: #576862; font-size: 9px; font-weight: 700; }
-.legend-place { width: 23px; height: 23px; display: grid; place-items: center; border-radius: 50%; color: white; }
-.legend-place svg { width: 13px; height: 13px; }
-.legend-place--hotel { background: #885f40; }.legend-place--attraction { background: #537047; }.legend-place--restaurant { background: #c25d43; }
-.legend-line { width: 24px; height: 0; border-top: 3px solid #71877f; }.legend-line.is-dotted { border-top-style: dotted; }
-.map-date-legend { margin: 10px 0 0; padding: 0; display: grid; gap: 4px; list-style: none; }
-.map-date-legend li { display: grid; grid-template-columns: 8px 1fr auto; align-items: center; gap: 5px; color: var(--muted); font-size: 8px; }
-.map-date-legend li > i { width: 7px; height: 7px; border-radius: 50%; background: var(--legend-color); }
-.map-date-legend b { color: #435651; font-size: 8px; }
 
 .spending-total-wrap { align-items: flex-end; display: grid; grid-template-columns: 1fr auto; column-gap: 8px; }
 .spending-total-wrap small { grid-column: 1; color: var(--muted); font-size: 8px; font-weight: 760; letter-spacing: .08em; text-transform: uppercase; }
@@ -929,10 +915,6 @@ button:focus-visible,a:focus-visible {outline:2px solid var(--lake);outline-offs
   .appointment-form-grid .span-all { grid-column: auto; }
   .journey-map-layout { grid-template-columns: 1fr; }
   .accurate-map.handdrawn-map { height: min(52vh,380px); min-height: 310px; }
-  .map-legend { border-top: 1px solid rgba(91,108,103,.18); border-left: 0; max-height: 164px; }
-  .map-legend__icons,.map-legend__lines { grid-template-columns: repeat(3,1fr); }
-  .map-legend__lines { grid-template-columns: repeat(2,1fr); }
-  .map-date-legend { grid-template-columns: repeat(3,1fr); }
   .expense-form { width: 100%; padding: 11px; grid-template-columns: 1fr; }
   .expense-form > div,.expense-address,.expense-conversion,.expense-form > button { width: 100%; grid-column: 1; }
   .expense-form input,.expense-form select,.expense-form > button { width: 100%; max-width: none; }
@@ -989,24 +971,24 @@ button:focus-visible,a:focus-visible {outline:2px solid var(--lake);outline-offs
 
 /* Cropped Kanto–Chubu relief map inspired by a floating paper topography. */
 .journey-map-layout {
-  padding: 11px; gap: 11px; grid-template-columns: minmax(0,1fr) 166px;
+  padding: 11px; display: block;
   border: 1px solid rgba(91,108,103,.16); background: var(--paper);
   box-shadow: 0 22px 48px rgba(19,38,47,.11),0 4px 12px rgba(19,38,47,.05);
 }
+.journey-map-stage { position: relative; min-width: 0; }
 .accurate-map.handdrawn-map {
   border-radius: 15px;
   background: radial-gradient(circle at 26% 18%,rgba(255,255,255,.92),transparent 34%),linear-gradient(145deg,#edf1eb,#e8ece6);
   filter: drop-shadow(0 20px 30px rgba(0,0,0,.12)); isolation: isolate;
 }
-.handdrawn-land-relief { filter: drop-shadow(0 10px 8px rgba(64,67,54,.18)); }
-.handdrawn-land { filter: drop-shadow(0 17px 15px rgba(53,60,52,.18)); stroke-linejoin: round; }
-.watercolor-hill { filter: blur(2px); }
-.regional-map-label { width: auto !important; height: auto !important; background: transparent; border: 0; }
-.regional-map-label span {
-  display: block; color: rgba(72,86,80,.52); font: 700 9px/1.2 Georgia,"Times New Roman",serif;
-  letter-spacing: .035em; text-align: center; white-space: nowrap; text-shadow: 0 1px rgba(255,255,255,.9);
+.relief-map-image {
+  filter: saturate(.9) contrast(.98) brightness(1.015);
+  image-rendering: auto;
 }
-
+.handdrawn-map .leaflet-image-layer { user-select: none; }
+.journey-route-line.is-active,.journey-local-loop.is-active {
+  filter: drop-shadow(0 1px 1px rgba(255,255,255,.92)) drop-shadow(0 2px 3px rgba(32,54,58,.24));
+}
 .leaflet-category-marker { background: transparent; border: 0; filter: drop-shadow(0 5px 6px rgba(34,46,44,.18)); }
 .leaflet-category-marker > span {
   width: 38px; height: 34px; border: 1px solid #d8d5c8; border-radius: 13px;
@@ -1026,17 +1008,28 @@ button:focus-visible,a:focus-visible {outline:2px solid var(--lake);outline-offs
 }
 .transport-map-marker svg { width: 14px; height: 14px; stroke-width: 1.5; }
 
-.map-legend {
-  padding: 12px; border: 1px solid rgba(91,108,103,.14); border-radius: 14px;
-  background: rgba(255,253,247,.88); box-shadow: 0 9px 18px rgba(37,51,47,.07),inset 0 1px 0 white;
+.relief-map-legend {
+  position: absolute; z-index: 520; right: 14px; bottom: 14px; width: 150px; padding: 11px;
+  display: grid; gap: 7px; border: 1px solid rgba(91,108,103,.15); border-radius: 14px;
+  color: #4e5b56; background: rgba(255,252,245,.9); box-shadow: 0 10px 24px rgba(37,51,47,.16),inset 0 1px 0 white;
+  backdrop-filter: blur(7px); pointer-events: none;
 }
-.map-date-legend li { grid-template-columns: 8px 1fr; min-height: 15px; font-size: 9px; font-weight: 740; }
-.map-date-legend li > i { box-shadow: 0 1px 3px color-mix(in srgb,var(--legend-color) 45%,transparent); }
-.map-date-legend b { display: none; }
+.relief-map-legend > span { display: flex; align-items: center; gap: 7px; font: 650 9px/1.25 Georgia,"Times New Roman",serif; }
+.relief-legend-line { width: 27px; flex: 0 0 27px; border-top: 2px solid var(--legend-color,#286f86); }
+.relief-legend-line.is-dotted { border-top-style: dotted; border-color: #825337; }
+.relief-legend-line.is-dimmed { border-color: #aba69c; border-top-style: dotted; }
+.relief-legend-place { width: 22px; height: 22px; flex: 0 0 22px; display: grid; place-items: center; border-radius: 50%; color: white; box-shadow: 0 2px 5px rgba(42,54,51,.15); }
+.relief-legend-place svg { width: 12px; height: 12px; }
+.relief-legend-place.is-hotel { background: #9a6b42; }
+.relief-legend-place.is-restaurant { background: #d8755d; }
+.relief-legend-place.is-attraction { background: #75824a; }
 
 @media (max-width: 699px) {
-  .journey-map-layout { padding: 8px; grid-template-columns: 1fr; }
-  .map-legend { max-height: none; overflow: visible; border: 1px solid rgba(91,108,103,.14); }
+  .journey-map-layout { padding: 7px; }
+  .relief-map-legend { right: 8px; bottom: 8px; width: 126px; padding: 8px; gap: 5px; border-radius: 11px; }
+  .relief-map-legend > span { gap: 5px; font-size: 7.5px; }
+  .relief-legend-place { width: 18px; height: 18px; flex-basis: 18px; }
+  .relief-legend-place svg { width: 10px; height: 10px; }
 }
 
 /* Keep these alignment guarantees last so component media rules cannot override them. */
@@ -1298,16 +1291,16 @@ body.is-touch-dragging { user-select: none; -webkit-user-select: none; cursor: g
 .schedule-location-remove:hover,
 .schedule-location-remove:focus-visible { color: #8f5747; background: rgba(255,255,255,.65); }
 .schedule-location-add {
-  min-height: 32px;
-  padding: 5px 11px;
+  min-height: 26px;
+  padding: 3px 8px;
   border: 1px dashed #8eb4bc;
   border-radius: 999px;
   color: #356d76;
   background: rgba(255,255,255,.4);
   font-family: inherit;
-  font-size: 10px;
+  font-size: 8px;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1;
   cursor: pointer;
 }
 .schedule-location-editor {
@@ -1355,7 +1348,7 @@ body.is-touch-dragging { user-select: none; -webkit-user-select: none; cursor: g
 @media (max-width: 699px) {
   .schedule-location-chip .schedule-map-link { min-height: 34px; padding-block: 7px; }
   .schedule-location-remove { width: 36px; min-width: 36px; min-height: 34px; }
-  .schedule-location-add { min-height: 36px; }
+  .schedule-location-add { min-height: 29px; padding: 4px 9px; font-size: 8.5px; }
   .schedule-location-editor { grid-template-columns: 1fr; }
   .schedule-location-editor__actions { justify-content: flex-end; }
   .schedule-location-editor__actions button { min-width: 74px; }

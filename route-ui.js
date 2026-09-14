@@ -121,24 +121,26 @@ function travelMapMarkup(source, route) {
   window.setTimeout(() => initializeGeographicMap(id, source, visiblePlaceIds, route), 0);
   return `<div class="travel-map-block ${route ? "is-daily" : "is-overview"}" ${route ? `style="--route-color:${route.color}"` : ""}>
     <div class="journey-map-layout">
-      <div class="accurate-map handdrawn-map" id="${id}" role="application" aria-label="${route ? `Day ${day.day}` : "Trip overview"} interactive illustrated map"><p>Painting the journey map…</p></div>
-      ${mapLegendMarkup(route)}
+      <div class="journey-map-stage">
+        <div class="accurate-map handdrawn-map" id="${id}" role="application" aria-label="${route ? `Day ${day.day}` : "Trip overview"} interactive illustrated map"><p>Painting the journey map…</p></div>
+        ${reliefLegendMarkup(route)}
+      </div>
     </div>
     <div class="map-utility"><span>${escapeHtml(mapNote)} · Pinch or use + / − to zoom</span><button type="button" data-fit-map>Reset view</button></div>
   </div>`;
 }
 
-function mapLegendMarkup(route) {
-  const routes = route ? [route] : mapRoutes;
-  const rows = routes.map((item) => {
-    const day = state.data.days.find((candidate) => candidate.day === item.day);
-    const [, month, date] = day?.date?.split("-") || [];
-    return day ? `<li><i style="--legend-color:${item.color}"></i><span>${escapeHtml(`${date}/${month}`)}</span></li>` : "";
-  }).join("");
-  return `<aside class="map-legend" aria-label="Map legend">
-    <div class="map-legend__icons"><span><i class="legend-place legend-place--hotel">${placeCategoryIcon("hotel")}</i>Hotel</span><span><i class="legend-place legend-place--attraction">${placeCategoryIcon("attraction")}</i>Attraction</span><span><i class="legend-place legend-place--restaurant">${placeCategoryIcon("noodles")}</i>Restaurant</span></div>
-    <div class="map-legend__lines"><span><i class="legend-line is-solid"></i>Hotel change</span><span><i class="legend-line is-dotted"></i>Local stops</span></div>
-    <ul class="map-date-legend">${rows}</ul>
+function reliefLegendMarkup(route) {
+  const day = route && state.data.days.find((candidate) => candidate.day === route.day);
+  const [, month, date] = day?.date?.split("-") || [];
+  const activeDate = day ? `${date}/${month}` : "17-day route";
+  const travelMode = day && day.date >= "2026-12-20" && day.day < 17 ? "Self-drive" : day?.day === 17 ? "Drive + flight" : "Public transport";
+  return `<aside class="relief-map-legend" aria-label="Relief map legend">
+    ${route ? `<span><i class="relief-legend-line is-active" style="--legend-color:${route.color}"></i>${escapeHtml(activeDate)} · ${escapeHtml(travelMode)}</span><span><i class="relief-legend-line is-dimmed"></i>Other days</span>` : `<span><i class="relief-legend-line is-active"></i>Hotel change</span>`}
+    <span><i class="relief-legend-line is-dotted"></i>Local stops</span>
+    <span><i class="relief-legend-place is-hotel">${placeCategoryIcon("hotel")}</i>Hotel</span>
+    <span><i class="relief-legend-place is-restaurant">${placeCategoryIcon("noodles")}</i>Restaurant</span>
+    <span><i class="relief-legend-place is-attraction">${placeCategoryIcon("attraction")}</i>Attraction</span>
   </aside>`;
 }
 
@@ -154,27 +156,20 @@ function initializeGeographicMap(id, source, visiblePlaceIds, route) {
   }
   activeGeographicMap?.remove();
   element.replaceChildren();
-  const regionalBounds = window.L.latLngBounds([[34.72, 136.45], [37.02, 140.12]]);
+  // The confirmed relief artwork is the visual source for the overview and
+  // every daily view. Leaflet supplies interaction plus live route layers.
+  const regionalBounds = window.L.latLngBounds([[34.0, 135.52], [38.13, 140.67]]);
   const map = window.L.map(element, {
     zoomControl: true, scrollWheelZoom: true, zoomSnap: .5, zoomDelta: .5,
-    minZoom: 6.5, maxZoom: 12, maxBounds: regionalBounds.pad(.08), maxBoundsViscosity: .8,
+    minZoom: 6, maxZoom: 12, maxBounds: regionalBounds.pad(.08), maxBoundsViscosity: .8,
     attributionControl: false
   });
   activeGeographicMap = map;
-  element.insertAdjacentHTML("beforeend", '<span class="map-paper-label" aria-hidden="true">KANTO · CHUBU</span>');
-  const land = [[37.0,136.5],[37.02,137.18],[36.93,137.95],[36.98,138.74],[36.75,139.42],[36.34,140.06],[35.76,140.12],[35.18,139.86],[34.76,139.16],[34.72,138.28],[34.8,137.26],[35.08,136.53],[35.7,136.46],[36.4,136.48]];
-  const reliefLand = land.map(([lat,lng]) => [lat - .035,lng + .025]);
-  window.L.polygon(reliefLand, { className: "handdrawn-land-relief", color: "#abb19e", weight: 3, opacity: .45, fillColor: "#b9b9a8", fillOpacity: .58, interactive: false }).addTo(map);
-  window.L.polygon(land, { className: "handdrawn-land", color: "#a5ae99", weight: 2, opacity: .68, fillColor: "#f2f0e5", fillOpacity: .98, interactive: false }).addTo(map);
-  [[36.65,137.45,36000],[36.35,138.15,46000],[35.95,138.7,38000],[35.35,137.5,33000]].forEach(([lat,lng,radius]) => {
-    window.L.circle([lat,lng], { className: "watercolor-hill", radius, color: "transparent", fillColor: "#85967c", fillOpacity: .1, interactive: false }).addTo(map);
-  });
-  window.L.polygon([[35.38,138.55],[35.28,138.72],[35.2,138.58]], { className: "handdrawn-mountain", color: "#9c8874", weight: 2, fillColor: "#d9cbbc", fillOpacity: .45, interactive: false }).addTo(map);
-  window.L.circle([35.21,139.0], { className: "watercolor-lake", radius: 12000, color: "#91a9ad", weight: 1.5, fillColor: "#cbdcdf", fillOpacity: .5, interactive: false }).addTo(map);
-  [[35.32,139.55,"Kamakura"],[36.14,137.25,"Takayama"],[36.26,136.9,"Shirakawa-go"],[36.56,136.66,"Kanazawa"]].forEach(([lat,lng,label]) => {
-    const icon = window.L.divIcon({ className: "regional-map-label", html: `<span>${escapeHtml(label)}</span>`, iconSize: [84,18], iconAnchor: [42,9] });
-    window.L.marker([lat,lng], { icon, interactive: false }).addTo(map);
-  });
+  window.L.imageOverlay("assets/maps/kanto-chubu-relief-overview-self-drive.png?v=20260914", regionalBounds, {
+    className: "relief-map-image",
+    interactive: false,
+    opacity: 1
+  }).addTo(map);
   const coordinates = places.map((place) => [Number(place.geo.lat), Number(place.geo.lng)]);
   places.forEach((place) => {
     const [label, query] = placeOptions(source, place.id)[0];
@@ -184,24 +179,26 @@ function initializeGeographicMap(id, source, visiblePlaceIds, route) {
       .addTo(map)
       .bindPopup(`<strong>${escapeHtml(label)}</strong><br><a href="${mapsSearch(query)}" target="_blank" rel="noopener noreferrer">Open in Google Maps ↗</a>`);
   });
-  const routesToDraw = route ? [route] : mapRoutes;
+  const routesToDraw = mapRoutes;
   routesToDraw.forEach((routeItem) => {
     const definition = routeLayersFor(source).find((item) => item.day === routeItem.day);
     const routePlaces = (definition?.placeIds || []).map((placeId) => placeLayersFor(source).find((place) => place.id === placeId)).filter((place) => place?.geo);
     const points = routePlaces.map((place) => [Number(place.geo.lat), Number(place.geo.lng)]);
     const dayData = state.data.days.find((item) => item.day === routeItem.day);
-    const mode = dayData?.schedule.find((item) => ["drive","walk","hike","train","rail","flight","rental-car"].includes(item.type))?.type || (routeItem.day < 4 ? "walk" : "drive");
+    const scheduledMode = dayData?.schedule.find((item) => ["drive","walk","hike","train","rail","flight","rental-car"].includes(item.type))?.type;
+    const mode = dayData?.date >= "2026-12-20" && routeItem.day < 17 ? "drive" : scheduledMode || (routeItem.day < 4 ? "train" : "drive");
+    const isActiveRoute = !route || routeItem.day === route.day;
     const transportMarker = (position) => {
       const icon = window.L.divIcon({ className: "transport-map-marker", html: `<span style="--transport-color:${routeItem.color}" title="Day ${routeItem.day} · ${transportNames[mode] || mode}">${transportIcon(mode)}</span>`, iconSize: [26,26], iconAnchor: [13,13] });
-      window.L.marker(position, { icon, interactive: false }).addTo(map);
+      window.L.marker(position, { icon, interactive: false, opacity: isActiveRoute ? 1 : .16 }).addTo(map);
     };
     if (points.length > 1) {
       const isHotelTransfer = routePlaces.some((place) => place.category === "hotel") && routePlaces[0].id !== routePlaces.at(-1).id;
-      window.L.polyline(points, { className: "journey-route-line", color: routeItem.color, weight: route ? 4 : 3, opacity: .86, dashArray: isHotelTransfer ? null : "4 8", lineCap: "round" }).addTo(map);
+      window.L.polyline(points, { className: `journey-route-line${isActiveRoute ? " is-active" : " is-dimmed"}`, color: routeItem.color, weight: route && isActiveRoute ? 4 : 2.5, opacity: isActiveRoute ? .92 : .14, dashArray: isHotelTransfer ? null : "4 8", lineCap: "round", interactive: false }).addTo(map);
       const middle = [(points[0][0] + points.at(-1)[0]) / 2, (points[0][1] + points.at(-1)[1]) / 2];
       transportMarker(middle);
     } else if (points.length === 1) {
-      window.L.circle(points[0], { className: "journey-local-loop", radius: route ? 9000 : 6000, color: routeItem.color, weight: 3, opacity: .82, fill: false, dashArray: "3 7", interactive: false }).addTo(map);
+      window.L.circle(points[0], { className: `journey-local-loop${isActiveRoute ? " is-active" : " is-dimmed"}`, radius: route && isActiveRoute ? 9000 : 6000, color: routeItem.color, weight: isActiveRoute ? 3 : 2, opacity: isActiveRoute ? .84 : .12, fill: false, dashArray: "3 7", interactive: false }).addTo(map);
       const angle = routeItem.day * 2.399;
       transportMarker([points[0][0] + Math.sin(angle) * .065, points[0][1] + Math.cos(angle) * .08]);
     }
