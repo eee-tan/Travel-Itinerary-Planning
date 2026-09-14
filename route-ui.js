@@ -71,13 +71,25 @@ const posterTransferRoutes = [
   { day: 17, points: [[139.481952,35.906057],[139.459553,35.893138],[139.508777,35.830643],[139.574114,35.767361],[139.618778,35.749233],[139.614389,35.677429],[139.688187,35.682554],[139.711028,35.628973],[139.752556,35.617252],[139.759867,35.570400],[139.789708,35.547786],[139.783197,35.550973]] }
 ];
 
-const posterHotels = [
-  [35.6762,139.6503],[36.7950,138.9680],[36.5810,136.9630],[35.1690,136.8890],
-  [36.5650,138.1970],[35.1920,139.0260],[35.9060,139.4820]
-];
-
 function hotelIconMarkup() {
   return '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 20V9.5m0 6h17V20m-14-4v-5h5a4 4 0 0 1 4 4v1M3.5 19h17"/></svg>';
+}
+
+const posterHotels = [
+  { label: "Tokyo", geo: { lat: 35.6762, lng: 139.6503 } },
+  { label: "Minakami", geo: { lat: 36.7950, lng: 138.9680 } },
+  { label: "Tonami, Toyama", geo: { lat: 36.5810, lng: 136.9630 } },
+  { label: "Nagoya", geo: { lat: 35.1690, lng: 136.8890 } },
+  { label: "Matsushiro, Nagano", geo: { lat: 36.5650, lng: 138.1970 } },
+  { label: "Hakone", geo: { lat: 35.1920, lng: 139.0260 } },
+  { label: "Kawagoe", geo: { lat: 35.9060, lng: 139.4820 } }
+];
+
+function posterHotelMarkup(place) {
+  const point = posterPoint(place.geo);
+  return `<span class="poster-hotel-stop" style="--left:${(point.x / posterMap.width * 100).toFixed(3)}%;--top:${(point.y / posterMap.height * 100).toFixed(3)}%">
+    <b>${escapeHtml(place.label)}</b><i class="poster-hotel-marker">${hotelIconMarkup()}</i>
+  </span>`;
 }
 
 function posterMapMarkup(source, visiblePlaceIds, selectedRoute) {
@@ -87,14 +99,12 @@ function posterMapMarkup(source, visiblePlaceIds, selectedRoute) {
     const isActive = !selectedRoute || transfer.day === selectedRoute.day;
     return `<path class="poster-route${isActive ? " is-active" : " is-dimmed"}" data-poster-route-day="${transfer.day}" d="${path}"/>`;
   }).join("");
-  const hotels = posterHotels.map(([lat, lng]) => {
-    const point = posterPoint({ lat, lng });
-    return `<span class="poster-hotel-marker" style="--left:${(point.x / posterMap.width * 100).toFixed(3)}%;--top:${(point.y / posterMap.height * 100).toFixed(3)}%">${hotelIconMarkup()}</span>`;
-  }).join("");
+  const placeMarkup = posterHotels.map(posterHotelMarkup).join("");
+  const airport = posterPoint({ lat: 35.550973, lng: 139.783197 });
   return `<div class="poster-map" role="group" aria-label="${selectedRoute ? `Day ${selectedRoute.day}` : "17-day route overview"} on a Kanto and Chubu relief map">
     <img src="assets/maps/kanto-chubu-relief-clean.png?v=20260914-2" alt="" draggable="false">
     <svg class="poster-route-layer" viewBox="0 0 ${posterMap.width} ${posterMap.height}" aria-hidden="true">${routeMarkup}</svg>
-    <div class="poster-hotel-layer" aria-hidden="true">${hotels}</div>
+    <div class="poster-marker-layer">${placeMarkup}<span class="poster-endpoint-label" style="--left:${(airport.x / posterMap.width * 100).toFixed(3)}%;--top:${(airport.y / posterMap.height * 100).toFixed(3)}%">Haneda Airport</span></div>
     ${posterLegendMarkup()}
   </div>`;
 }

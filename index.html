@@ -11,12 +11,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260914-7">
+  <link rel="stylesheet" href="styles.css?v=20260914-8">
   <script src="trip-data.js?v=20260914-4" defer></script>
   <script src="runtime-storage.js?v=20260910-2" defer></script>
   <script src="overview-map.js?v=20260910-2" defer></script>
-  <script src="route-ui.js?v=20260914-7" defer></script>
-  <script src="app.js?v=20260914-2" defer></script>
+  <script src="route-ui.js?v=20260914-8" defer></script>
+  <script src="location-utils.js?v=20260914-1" defer></script>
+  <script src="app.js?v=20260914-3" defer></script>
   <script src="ticket-pdf-preview.js?v=20260910-2" defer></script>
   <script src="site-navigation.js?v=20260910-2" defer></script>
 </head>
@@ -145,8 +146,8 @@
         <label class="span-all">Title<input name="title" maxlength="100" required placeholder="Reservation name"></label>
         <label>Start / Check-in<input name="start" placeholder="15:00"></label>
         <label>End / Check-out<input name="end" placeholder="11:00"></label>
-        <label class="span-all">Location<input name="location" maxlength="120" placeholder="Area or venue"></label>
-        <label class="span-all">Address<input name="address" maxlength="180" placeholder="Google Maps address"></label>
+        <label class="span-all">Location<input name="location" maxlength="220" placeholder="Official venue or area name"></label>
+        <label class="span-all">Google Maps place, address or link<input name="address" maxlength="1000" placeholder="Paste a place name, full address, or Google Maps URL"></label>
         <label>Booking number<input name="booking" maxlength="80"></label>
         <label>Image link<input name="attachmentUrl" type="url" placeholder="https://…"></label>
         <label class="span-all attachment-file-label">Screenshot / image<input name="attachmentFile" type="file" accept="image/*"></label>

@@ -14,6 +14,8 @@ const state = {
   expandedDayBeforeEdit: null,
   editingLocationKey: null,
   appointmentMedia: {},
+  appointmentEdits: {},
+  editingAppointmentId: null,
   customAppointments: [],
   expenses: []
 };
@@ -120,6 +122,12 @@ function todayForTrip() {
 
 function mapsSearch(query) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+function locationFromInput(value, fallbackLabel = "") {
+  if (window.LocationUtils?.parseLocationInput) return window.LocationUtils.parseLocationInput(value, fallbackLabel);
+  const text = String(value || fallbackLabel).trim();
+  return { label: text, query: text, url: "", source: "fallback" };
 }
 
 function openMediaLightbox(source, alt = "Travel image") {
@@ -563,7 +571,7 @@ function scheduleLocations(noteKey, item) {
   const source = Array.isArray(saved) ? saved : navigationDestinations(item);
   return source.map((destination, index) => ({
     id: String(destination.id || `custom-location-${index + 1}`),
-    label: String(destination.label || destination.query || "Location"),
+    label: String(destination.officialName || destination.label || destination.query || "Location"),
     query: String(destination.query || destination.label || ""),
     url: String(destination.url || "")
   })).filter((destination) => destination.query);
@@ -573,6 +581,7 @@ function persistScheduleLocations(noteKey, locations) {
   state.itineraryLocations[noteKey] = locations.map((location, index) => ({
     id: String(location.id || `custom-location-${Date.now()}-${index}`),
     label: String(location.label || location.query || "Location"),
+    officialName: String(location.officialName || location.label || location.query || "Location"),
     query: String(location.query || location.label || ""),
     url: String(location.url || "")
   }));
@@ -722,7 +731,14 @@ function renderTimeline() {
     const item = day?.schedule?.find((entry) => String(entry.id) === scheduleItem?.dataset.scheduleId);
     const key = form.dataset.locationForm;
     const locations = scheduleLocations(key, item);
-    locations.push({ id: `custom-location-${Date.now()}`, label: value, query: value, url: "" });
+    const resolved = locationFromInput(value, item?.text || "Location");
+    locations.push({
+      id: `custom-location-${Date.now()}`,
+      label: resolved.label,
+      officialName: resolved.label,
+      query: resolved.query,
+      url: resolved.url
+    });
     persistScheduleLocations(key, locations);
     state.editingLocationKey = null;
     renderTimeline();
@@ -915,15 +931,77 @@ function saveTicketState(ticketId, completed) {
   return saveSharedChange("tickets", { id: ticketId, completed }, completed ? "upsert" : "delete").catch(console.error);
 }
 
-function renderRental() {
+function appointmentModels() {
   const rental = state.data.groundTransport.rentalCar;
-  const hotelAppointments = state.data.accommodations
+  const hotels = state.data.accommodations
     .filter((stay) => stay.name && stay.name !== "TBD")
-    .map((stay, index) => ({ id: stay.id || `hotel-${index + 1}`, type: "Hotel", sortDate: stay.checkInDate, stay }));
-  const builtIn = [...hotelAppointments, { id: "rental-car", type: "Car rental", sortDate: rental.pickup.date, rental }];
-  const custom = state.customAppointments.map((item) => ({ ...item, sortDate: item.date, custom: true }));
-  const appointments = [...builtIn, ...custom]
-    .sort((a, b) => a.sortDate.localeCompare(b.sortDate));
+    .map((stay, index) => {
+      const address = stay.address || state.data.expenses?.items?.find((item) => item.description === stay.name)?.address || "";
+      return {
+        id: stay.id || `hotel-${index + 1}`,
+        type: "Hotel",
+        date: stay.checkInDate,
+        endDate: stay.checkOutDate,
+        title: stay.name,
+        location: stay.cityOrArea || "",
+        locationLabel: stay.name,
+        start: stay.checkInTime || "",
+        end: stay.checkOutTime || "",
+        booking: stay.bookingReference || "",
+        address,
+        detailLabel: stay.roomType ? "Room" : "",
+        detailValue: stay.roomType || ""
+      };
+    });
+  const rentalModel = {
+    id: "rental-car",
+    type: "Car rental",
+    date: rental.pickup.date,
+    endDate: rental.dropoff.date,
+    title: rental.company,
+    location: `${rental.vehicle.example} · Model ${rental.vehicle.class}`,
+    locationLabel: rental.company,
+    start: rental.pickup.time,
+    end: rental.dropoff.time,
+    booking: rental.reservationNumber,
+    address: rental.pickup.address || "",
+    detailLabel: "Vehicle",
+    detailValue: `${rental.vehicle.example} · ${rental.vehicle.class}`
+  };
+  const custom = state.customAppointments.map((item) => ({ ...item, custom: true }));
+  return [...hotels, rentalModel, ...custom]
+    .map((appointment) => ({ ...appointment, ...(state.appointmentEdits[appointment.id] || {}) }))
+    .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
+}
+
+function appointmentLocation(appointment) {
+  const source = appointment.address || appointment.location || appointment.title;
+  const cleanFallback = /^https?:\/\//i.test(appointment.location || "") ? appointment.title : (appointment.location || appointment.title);
+  const resolved = locationFromInput(source, appointment.locationLabel || cleanFallback);
+  const label = appointment.locationLabel || resolved.label || appointment.title;
+  return { ...resolved, label, query: appointment.mapQuery || resolved.query, url: appointment.mapUrl || resolved.url };
+}
+
+function appointmentEditMarkup(appointment) {
+  const types = ["Hotel", "Restaurant", "Activity", "Car rental", "Other"];
+  return `<form class="appointment-inline-form" data-appointment-edit-form="${escapeHtml(appointment.id)}">
+    <div class="appointment-inline-grid">
+      <label>Type<select name="type">${types.map((type) => `<option${type === appointment.type ? " selected" : ""}>${escapeHtml(type)}</option>`).join("")}</select></label>
+      <label>Date<input name="date" type="date" required value="${escapeHtml(appointment.date || "")}"></label>
+      <label>End date<input name="endDate" type="date" value="${escapeHtml(appointment.endDate || "")}"></label>
+      <label class="span-all">Title<input name="title" required maxlength="120" value="${escapeHtml(appointment.title || "")}"></label>
+      <label>Start / Check-in<input name="start" maxlength="40" value="${escapeHtml(appointment.start || "")}"></label>
+      <label>End / Check-out<input name="end" maxlength="40" value="${escapeHtml(appointment.end || "")}"></label>
+      <label class="span-all">Location name<input name="location" maxlength="220" value="${escapeHtml(appointment.location || "")}" placeholder="Official venue or area name"></label>
+      <label class="span-all">Google Maps place, address or link<input name="address" maxlength="1000" value="${escapeHtml(appointment.address || "")}" placeholder="Paste a Google Maps place URL, name, or full address"></label>
+      <label class="span-all">Booking number<input name="booking" maxlength="100" value="${escapeHtml(appointment.booking || "")}"></label>
+    </div>
+    <div class="appointment-inline-actions"><button type="button" data-appointment-cancel>Cancel</button><button type="submit">Save</button></div>
+  </form>`;
+}
+
+function renderRental() {
+  const appointments = appointmentModels();
   $("#rental-provider-label").textContent = `${appointments.length} BOOKINGS`;
   $("#rental-card").innerHTML = `<div class="appointment-list">${appointments.map((appointment) => {
     const media = state.appointmentMedia[appointment.id] || appointment.attachmentUrl || "";
@@ -931,33 +1009,20 @@ function renderRental() {
       ${media ? `<button type="button" class="appointment-thumb" data-media-src="${escapeHtml(media)}" data-media-alt="${escapeHtml(`${appointment.type} booking attachment`)}"><img src="${escapeHtml(media)}" alt="Booking attachment thumbnail"></button>` : `<span class="appointment-thumb appointment-thumb--empty" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="15" rx="3"/><path d="m3 16 5-5 4 4 3-3 6 6"/></svg></span>`}
       <span><label class="mini-media-action">Upload<input type="file" accept="image/*" data-appointment-upload="${escapeHtml(appointment.id)}"></label><button type="button" class="mini-media-action" data-appointment-link="${escapeHtml(appointment.id)}">Link</button></span>
     </div>`;
-    if (appointment.stay) {
-      const stay = appointment.stay;
-      const stayAddress = stay.address || state.data.expenses?.items?.find((item) => item.description === stay.name)?.address || "";
-      return `<article class="appointment-card">
-        <div class="appointment-date"><span>${escapeHtml(formatFullCompactDate(stay.checkInDate))}</span><b>HOTEL</b></div>
-        <div class="appointment-body"><h3>${escapeHtml(stay.name)}</h3><p>${escapeHtml(stay.cityOrArea)}</p>
-          <dl class="appointment-times"><div><dt>Check-in</dt><dd>${escapeHtml(formatFullCompactDate(stay.checkInDate))}${stay.checkInTime ? ` · ${escapeHtml(stay.checkInTime)}` : ""}</dd></div><div><dt>Check-out</dt><dd>${escapeHtml(formatFullCompactDate(stay.checkOutDate))}${stay.checkOutTime ? ` · ${escapeHtml(stay.checkOutTime)}` : ""}</dd></div></dl>
-          <dl class="appointment-details">${stay.roomType ? `<div><dt>Room</dt><dd>${escapeHtml(stay.roomType)}</dd></div>` : ""}${stay.bookingReference ? `<div><dt>Booking</dt><dd>${escapeHtml(stay.bookingReference)}</dd></div>` : ""}</dl>
-          ${stayAddress ? `<a class="appointment-location" href="${mapsSearch(stayAddress)}" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg><span>${escapeHtml(stayAddress)}</span></a>` : ""}
-        </div>${mediaMarkup}</article>`;
-    }
-    if (appointment.custom) {
-      return `<article class="appointment-card">
-        <div class="appointment-date"><span>${escapeHtml(formatFullCompactDate(appointment.date))}</span><b>${escapeHtml(appointment.type.toUpperCase())}</b></div>
-        <div class="appointment-body"><h3>${escapeHtml(appointment.title)}</h3><p>${escapeHtml(appointment.location || "")}</p>
-          <dl class="appointment-times">${appointment.start ? `<div><dt>Start</dt><dd>${escapeHtml(appointment.start)}</dd></div>` : ""}${appointment.end ? `<div><dt>End</dt><dd>${escapeHtml(appointment.end)}</dd></div>` : ""}</dl>
-          ${appointment.booking ? `<dl class="appointment-details"><div><dt>Booking</dt><dd>${escapeHtml(appointment.booking)}</dd></div></dl>` : ""}
-          ${appointment.address ? `<a class="appointment-location" href="${mapsSearch(appointment.address)}" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg><span>${escapeHtml(appointment.address)}</span></a>` : ""}
-          <button class="appointment-delete" type="button" data-appointment-delete="${escapeHtml(appointment.id)}">Delete</button>
-        </div>${mediaMarkup}</article>`;
-    }
-    return `<article class="appointment-card">
-      <div class="appointment-date"><span>${escapeHtml(formatFullCompactDate(rental.pickup.date))}</span><b>CAR RENTAL</b></div>
-      <div class="appointment-body"><h3>${escapeHtml(rental.company)}</h3><p>${escapeHtml(rental.vehicle.example)} · Model ${escapeHtml(rental.vehicle.class)}</p>
-        <dl class="appointment-times"><div><dt>Pickup</dt><dd>${escapeHtml(formatFullCompactDate(rental.pickup.date))} · ${escapeHtml(rental.pickup.time)}</dd></div><div><dt>Return</dt><dd>${escapeHtml(formatFullCompactDate(rental.dropoff.date))} · ${escapeHtml(rental.dropoff.time)}</dd></div></dl><dl class="appointment-details"><div><dt>Booking</dt><dd>${escapeHtml(rental.reservationNumber)}</dd></div></dl>
-        <a class="appointment-location" href="${mapsSearch(rental.pickup.address)}" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg><span>${escapeHtml(rental.pickup.address)}</span></a>
-      </div>${mediaMarkup}</article>`;
+    const resolvedLocation = appointmentLocation(appointment);
+    const locationHref = safeExternalUrl(resolvedLocation.url) || mapsSearch(resolvedLocation.query);
+    const firstLabel = appointment.type === "Hotel" ? "Check-in" : appointment.type === "Car rental" ? "Pickup" : "Start";
+    const secondLabel = appointment.type === "Hotel" ? "Check-out" : appointment.type === "Car rental" ? "Return" : "End";
+    const editing = state.editingAppointmentId === appointment.id;
+    return `<article class="appointment-card${editing ? " is-editing" : ""}" data-appointment-id="${escapeHtml(appointment.id)}">
+      ${editing ? appointmentEditMarkup(appointment) : `<div class="appointment-date"><span>${escapeHtml(formatFullCompactDate(appointment.date))}</span><b>${escapeHtml(String(appointment.type || "Other").toUpperCase())}</b></div>
+      <div class="appointment-body"><div class="appointment-title-row"><h3>${escapeHtml(appointment.title)}</h3><button class="appointment-edit" type="button" data-appointment-edit="${escapeHtml(appointment.id)}">Edit</button></div><p>${escapeHtml(/^https?:\/\//i.test(appointment.location || "") ? resolvedLocation.label : (appointment.location || ""))}</p>
+        <dl class="appointment-times">${appointment.start ? `<div><dt>${firstLabel}</dt><dd>${escapeHtml(formatFullCompactDate(appointment.date))} · ${escapeHtml(appointment.start)}</dd></div>` : ""}${appointment.end ? `<div><dt>${secondLabel}</dt><dd>${appointment.endDate ? `${escapeHtml(formatFullCompactDate(appointment.endDate))} · ` : ""}${escapeHtml(appointment.end)}</dd></div>` : ""}</dl>
+        ${(appointment.detailValue || appointment.booking) ? `<dl class="appointment-details">${appointment.detailValue ? `<div><dt>${escapeHtml(appointment.detailLabel || "Details")}</dt><dd>${escapeHtml(appointment.detailValue)}</dd></div>` : ""}${appointment.booking ? `<div><dt>Booking</dt><dd>${escapeHtml(appointment.booking)}</dd></div>` : ""}</dl>` : ""}
+        ${resolvedLocation.query ? `<a class="appointment-location" href="${escapeHtml(locationHref)}" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg><span>${escapeHtml(resolvedLocation.label)}</span></a>` : ""}
+        ${appointment.custom ? `<button class="appointment-delete" type="button" data-appointment-delete="${escapeHtml(appointment.id)}">Delete</button>` : ""}
+      </div>${mediaMarkup}`}
+    </article>`;
   }).join("")}</div>`;
   $("#drive-notes").replaceChildren();
 
@@ -965,6 +1030,9 @@ function renderRental() {
   container.onclick = (event) => {
     const add = event.target.closest("[data-add-appointment]");
     if (add) { event.preventDefault(); event.stopPropagation(); openAppointmentDialog(); return; }
+    const edit = event.target.closest("[data-appointment-edit]");
+    if (edit) { state.editingAppointmentId = edit.dataset.appointmentEdit; renderRental(); return; }
+    if (event.target.closest("[data-appointment-cancel]")) { state.editingAppointmentId = null; renderRental(); return; }
     const mediaButton = event.target.closest("[data-media-src]");
     if (mediaButton) { openMediaLightbox(mediaButton.dataset.mediaSrc, mediaButton.dataset.mediaAlt); return; }
     const linkButton = event.target.closest("[data-appointment-link]");
@@ -983,6 +1051,21 @@ function renderRental() {
       delete state.appointmentMedia[remove.dataset.appointmentDelete];
       savePersonalState(); renderRental();
     }
+  };
+  container.onsubmit = (event) => {
+    const form = event.target.closest("[data-appointment-edit-form]");
+    if (!form) return;
+    event.preventDefault();
+    const values = Object.fromEntries(["type", "date", "endDate", "title", "start", "end", "location", "address", "booking"].map((key) => [key, String(new FormData(form).get(key) || "").trim()]));
+    const parsed = locationFromInput(values.address || values.location, /^https?:\/\//i.test(values.location) ? values.title : (values.location || values.title));
+    values.locationLabel = parsed.source === "address" && values.location ? values.location : parsed.label;
+    values.mapQuery = parsed.query;
+    values.mapUrl = parsed.url;
+    if (/^https?:\/\//i.test(values.location)) values.location = parsed.label;
+    state.appointmentEdits[form.dataset.appointmentEditForm] = values;
+    state.editingAppointmentId = null;
+    savePersonalState();
+    renderRental();
   };
   container.onchange = (event) => {
     const input = event.target.closest("[data-appointment-upload]");
@@ -1016,6 +1099,11 @@ function setupAppointmentDialog() {
     const id = `appointment-${Date.now()}`;
     const item = Object.fromEntries(["type", "date", "title", "start", "end", "location", "address", "booking", "attachmentUrl"].map((key) => [key, String(data.get(key) || "").trim()]));
     item.id = id;
+    const parsedLocation = locationFromInput(item.address || item.location, /^https?:\/\//i.test(item.location) ? item.title : (item.location || item.title));
+    item.locationLabel = parsedLocation.source === "address" && item.location ? item.location : parsedLocation.label;
+    item.mapQuery = parsedLocation.query;
+    item.mapUrl = parsedLocation.url;
+    if (/^https?:\/\//i.test(item.location)) item.location = parsedLocation.label;
     const safeLink = /^https?:\/\//i.test(item.attachmentUrl) ? safeExternalUrl(item.attachmentUrl) : "";
     if (item.attachmentUrl && !safeLink) { window.alert("Please enter a valid http(s) image link."); return; }
     const file = form.elements.attachmentFile.files?.[0];
@@ -1055,6 +1143,7 @@ function loadPersonalState() {
   try { state.itineraryLocations = JSON.parse(localStorage.getItem(personalStorageKey("itinerary-locations")) || "{}"); } catch { state.itineraryLocations = {}; }
   applySavedItinerarySchedule();
   try { state.appointmentMedia = JSON.parse(localStorage.getItem(personalStorageKey("appointment-media")) || "{}"); } catch { state.appointmentMedia = {}; }
+  try { state.appointmentEdits = JSON.parse(localStorage.getItem(personalStorageKey("appointment-edits")) || "{}"); } catch { state.appointmentEdits = {}; }
   try { state.customAppointments = JSON.parse(localStorage.getItem(personalStorageKey("custom-appointments")) || "[]"); } catch { state.customAppointments = []; }
   if (!Array.isArray(state.customAppointments)) state.customAppointments = [];
   try {
@@ -1070,6 +1159,7 @@ function savePersonalState() {
   localStorage.setItem(personalStorageKey("itinerary-schedule"), JSON.stringify(state.itinerarySchedule));
   localStorage.setItem(personalStorageKey("itinerary-locations"), JSON.stringify(state.itineraryLocations));
   localStorage.setItem(personalStorageKey("appointment-media"), JSON.stringify(state.appointmentMedia));
+  localStorage.setItem(personalStorageKey("appointment-edits"), JSON.stringify(state.appointmentEdits));
   localStorage.setItem(personalStorageKey("custom-appointments"), JSON.stringify(state.customAppointments));
   localStorage.setItem(personalStorageKey("expenses"), JSON.stringify(state.expenses));
 }
