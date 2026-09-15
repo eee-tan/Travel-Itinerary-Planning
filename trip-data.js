@@ -1466,7 +1466,7 @@ window.TRAVEL_PLAN_DATA_BUNDLE = {
             "day": 4,
             "color": "#209aaa",
             "placeIds": [
-              "place-haneda",
+              "place-tokyo",
               "place-minakami"
             ],
             "paths": [

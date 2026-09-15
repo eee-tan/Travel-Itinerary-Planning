@@ -511,7 +511,6 @@ function dayCard(day) {
       ${ticketSummary}
       </div>
       <div class="day-detail" id="day-detail-${day.day}" ${expanded ? "" : "hidden"}>
-        ${state.editingItinerary ? `<div class="day-drop-zone" data-drop-day="${day.day}">Drop itinerary here</div>` : ""}
         <ol class="schedule">${schedule}</ol>
         ${costs ? `<div class="costs">${costs}</div>` : ""}
       </div>
@@ -687,23 +686,8 @@ function renderTimeline() {
     renderTimeline();
   };
   $("#itinerary").classList.toggle("is-editing", state.editingItinerary);
-  const editToolbar = state.editingItinerary ? `<div class="itinerary-edit-toolbar" role="toolbar" aria-label="Itinerary day display controls">
-    <span>Edit mode</span>
-    <button type="button" data-expand-all-days>Expand all</button>
-    <button type="button" data-collapse-all-days>Collapse all</button>
-  </div>` : "";
-  $("#timeline").innerHTML = editToolbar + state.data.days.map(dayCard).join("");
+  $("#timeline").innerHTML = state.data.days.map(dayCard).join("");
   $("#timeline").onclick = (event) => {
-    if (event.target.closest("[data-expand-all-days]")) {
-      state.collapsedEditDays.clear();
-      renderTimeline();
-      return;
-    }
-    if (event.target.closest("[data-collapse-all-days]")) {
-      state.collapsedEditDays = new Set(state.data.days.map((day) => day.day));
-      renderTimeline();
-      return;
-    }
     const mediaButton = event.target.closest("[data-media-src]");
     if (mediaButton) { openMediaLightbox(mediaButton.dataset.mediaSrc, mediaButton.dataset.mediaAlt); return; }
     const removePhoto = event.target.closest("[data-remove-schedule-photo]");

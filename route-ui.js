@@ -10,9 +10,34 @@ const journeyColors = [
   "#d4a017", "#d14f8b", "#4257b2", "#008577", "#9a572f", "#70a832",
   "#e15b4f", "#254f87", "#c43d73", "#0096a6", "#6c49a8"
 ];
+const transferRouteColors = new Map([
+  [4, "#397dc1"], [6, "#2b8c89"], [9, "#718a4a"], [11, "#8865a5"],
+  [13, "#b8674f"], [15, "#c4902f"], [17, "#b75f7a"]
+]);
+const transferRouteLabels = new Map([
+  [4, ["Tokyo", "Minakami"]],
+  [6, ["Minakami", "Tonami, Toyama"]],
+  [9, ["Tonami, Toyama", "Nagoya"]],
+  [11, ["Nagoya", "Matsushiro, Nagano"]],
+  [13, ["Matsushiro, Nagano", "Hakone"]],
+  [15, ["Hakone", "Kawagoe"]],
+  [17, ["Kawagoe", "Haneda Airport"]]
+]);
+const transferPlaceIds = new Map([
+  [4, ["place-tokyo", "place-minakami"]],
+  [6, ["place-minakami", "place-tonami"]],
+  [9, ["place-tonami", "place-nagoya"]],
+  [11, ["place-nagoya", "place-nagano"]],
+  [13, ["place-nagano", "place-hakone"]],
+  [15, ["place-hakone", "place-kawagoe"]],
+  [17, ["place-kawagoe", "place-haneda"]]
+]);
 
 function mapRouteDefinitions(source) {
-  return routeLayersFor(source).map(({ day }, index) => ({ day, color: journeyColors[index % journeyColors.length] }));
+  return routeLayersFor(source).map(({ day }, index) => ({
+    day,
+    color: transferRouteColors.get(day) || journeyColors[index % journeyColors.length]
+  }));
 }
 
 function dailyMapLayoutFor(source, dayNumber) {
@@ -72,62 +97,81 @@ const posterTransferRoutes = [
 ];
 
 function hotelIconMarkup() {
-  return '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 20V9.5m0 6h17V20m-14-4v-5h5a4 4 0 0 1 4 4v1M3.5 19h17"/></svg>';
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 4.6 20 11.2V19.4H14.4V14.6H9.6V19.4H4V11.2Z"/></svg>';
 }
 
-const posterHotels = [
-  { label: "Tokyo", geo: { lat: 35.6762, lng: 139.6503 } },
-  { label: "Minakami", geo: { lat: 36.7950, lng: 138.9680 } },
-  { label: "Tonami, Toyama", geo: { lat: 36.5810, lng: 136.9630 } },
-  { label: "Nagoya", geo: { lat: 35.1690, lng: 136.8890 } },
-  { label: "Matsushiro, Nagano", geo: { lat: 36.5650, lng: 138.1970 } },
-  { label: "Hakone", geo: { lat: 35.1920, lng: 139.0260 } },
-  { label: "Kawagoe", geo: { lat: 35.9060, lng: 139.4820 } }
-];
+const posterLabelPlacement = { "place-kawagoe": "left", "place-tokyo": "above", "place-haneda": "left" };
 
-function posterHotelMarkup(place) {
+function posterPlaceMarkupFor(source, place, isActive, roleLabel) {
   const point = posterPoint(place.geo);
-  return `<span class="poster-hotel-stop" style="--left:${(point.x / posterMap.width * 100).toFixed(3)}%;--top:${(point.y / posterMap.height * 100).toFixed(3)}%">
-    <b>${escapeHtml(place.label)}</b><i class="poster-hotel-marker">${hotelIconMarkup()}</i>
-  </span>`;
+  const label = place.lines?.[0] || place.id;
+  const placement = posterLabelPlacement[place.id] || "below";
+  return `<button type="button" class="poster-place-marker${isActive ? " is-active" : " is-dimmed"}"
+    style="--left:${(point.x / posterMap.width * 100).toFixed(3)}%;--top:${(point.y / posterMap.height * 100).toFixed(3)}%"
+    data-place-id="${escapeHtml(place.id)}" data-map-region="${escapeHtml(source.id || "")}" data-place-role="${escapeHtml(roleLabel)}"
+    aria-label="${escapeHtml(label)}">${hotelIconMarkup()}<span class="poster-place-label poster-place-label--${placement}">${escapeHtml(label)}</span></button>`;
+}
+
+function posterRouteColor(day) {
+  return mapRoutes.find((item) => item.day === day)?.color || "#1769aa";
 }
 
 function posterMapMarkup(source, visiblePlaceIds, selectedRoute) {
+  const activeIds = new Set(visiblePlaceIds || []);
   const routeMarkup = posterTransferRoutes.map((transfer) => {
     const points = transfer.points.map(([lng, lat]) => posterPoint({ lat, lng }));
     const path = geographicRoutePath(points);
     const isActive = !selectedRoute || transfer.day === selectedRoute.day;
-    return `<path class="poster-route${isActive ? " is-active" : " is-dimmed"}" data-poster-route-day="${transfer.day}" d="${path}"/>`;
+    return `<path class="poster-route${isActive ? " is-active" : " is-dimmed"}" data-poster-route-day="${transfer.day}" style="--route-color:${posterRouteColor(transfer.day)}" d="${path}"/>`;
   }).join("");
-  const placeMarkup = posterHotels.map(posterHotelMarkup).join("");
-  const airport = posterPoint({ lat: 35.550973, lng: 139.783197 });
+  const roleLabel = selectedRoute ? `Day ${selectedRoute.day}` : "Overview";
+  const places = placeLayersFor(source).filter((place) => Number.isFinite(Number(place.geo?.lat)) && Number.isFinite(Number(place.geo?.lng)));
+  const placeMarkup = places
+    .map((place) => posterPlaceMarkupFor(source, place, !selectedRoute || activeIds.has(place.id), roleLabel))
+    .join("");
   return `<div class="poster-map" role="group" aria-label="${selectedRoute ? `Day ${selectedRoute.day}` : "17-day route overview"} on a Kanto and Chubu relief map">
     <img src="assets/maps/kanto-chubu-relief-clean.png?v=20260914-2" alt="" draggable="false">
     <svg class="poster-route-layer" viewBox="0 0 ${posterMap.width} ${posterMap.height}" aria-hidden="true">${routeMarkup}</svg>
-    <div class="poster-marker-layer">${placeMarkup}<span class="poster-endpoint-label" style="--left:${(airport.x / posterMap.width * 100).toFixed(3)}%;--top:${(airport.y / posterMap.height * 100).toFixed(3)}%">Haneda Airport</span></div>
-    ${posterLegendMarkup()}
+    <div class="poster-marker-layer">${placeMarkup}</div>
   </div>`;
+}
+
+function posterRouteDatesMarkup() {
+  const rows = posterTransferRoutes.map((transfer) => {
+    const day = state.data.days.find((item) => item.day === transfer.day);
+    if (!day) return "";
+    const [from, to] = transferRouteLabels.get(transfer.day);
+    return `<button type="button" class="poster-route-key" data-poster-legend-day="${transfer.day}" style="--route-color:${posterRouteColor(transfer.day)}" aria-label="Highlight Day ${day.day}: ${escapeHtml(from)} to ${escapeHtml(to)}"><i></i><span><b>${escapeHtml(formatCompactDate(day.date))}</b><small>${escapeHtml(from)} → ${escapeHtml(to)}</small></span></button>`;
+  }).join("");
+  return `<div class="poster-route-dates" role="list" aria-label="Seven accommodation routes by date">${rows}</div>`;
 }
 
 function travelMapMarkup(source, route) {
   const day = route && state.data.days.find((item) => item.day === route.day);
   const layout = route && dailyMapLayoutFor(source, route.day);
   const placeLayers = placeLayersFor(source);
-  const visiblePlaceIds = route && layout ? layout.places : (source.overviewPlaceIds || placeLayers.map((place) => place.id));
-  const mapNote = route ? `Day ${day.day} · ${formatFullCompactDate(day.date)}` : "Kanto & Chubu · 17-day overview";
+  const visiblePlaceIds = route
+    ? (transferPlaceIds.get(route.day) || layout?.places || [])
+    : (source.overviewPlaceIds || placeLayers.map((place) => place.id));
+  const transferLabel = route && transferRouteLabels.get(route.day);
+  const mapNote = route
+    ? `Day ${day.day} · ${formatFullCompactDate(day.date)}${transferLabel ? ` · ${transferLabel[0]} → ${transferLabel[1]}` : ""}`
+    : "Kanto & Chubu · 17-day overview";
   return `<div class="travel-map-block ${route ? "is-daily" : "is-overview"}" ${route ? `style="--route-color:${route.color}"` : ""}>
     <div class="journey-map-layout">
       <div class="journey-map-stage">
         ${posterMapMarkup(source, visiblePlaceIds, route)}
       </div>
     </div>
+    ${posterLegendMarkup()}
+    ${route ? "" : posterRouteDatesMarkup()}
     <div class="map-utility"><span>${escapeHtml(mapNote)} · Fixed illustrated route poster</span></div>
   </div>`;
 }
 
 function posterLegendMarkup() {
   return `<aside class="poster-map-legend" aria-label="Map legend">
-    <span><i class="poster-legend-line"></i>Hotel change</span>
+    <span><i class="poster-legend-line"></i>Route</span>
     <span><i class="poster-legend-hotel">${hotelIconMarkup()}</i>Hotel</span>
   </aside>`;
 }
@@ -141,7 +185,7 @@ function renderRoutePanel(regionId, dayNumber = 0) {
   mapRoutes = mapRouteDefinitions(source);
   const route = mapRoutes.find((item) => item.day === dayNumber);
   root.innerHTML = `${regions.length > 1 ? `<div class="route-region-tabs" aria-label="Destination countries">${regions.map((region) => `<button type="button" data-route-region="${escapeHtml(region.id)}" aria-pressed="${region.id === source.id}">${escapeHtml(region.label || region.heading?.text || region.id)}</button>`).join("")}</div>` : ""}
-  <div class="route-day-tabs" aria-label="Trip route dates"><button type="button" data-route-day="0" aria-pressed="${!route}">Overview</button>${mapRoutes.map((item) => { const day = state.data.days.find((candidate) => candidate.day === item.day); return day ? `<button type="button" data-route-day="${item.day}" style="--route-color:${item.color}" aria-pressed="${item === route}"><i></i>Day ${day.day}, ${escapeHtml(formatCompactDate(day.date))}</button>` : ""; }).join("")}</div>${travelMapMarkup(source, route)}`;
+  <div class="route-day-tabs" aria-label="Trip route dates"><button type="button" data-route-day="0" aria-pressed="${!route}">Overview</button>${mapRoutes.map((item) => { const day = state.data.days.find((candidate) => candidate.day === item.day); const hasRoute = transferRouteColors.has(item.day); return day ? `<button type="button" data-route-day="${item.day}" style="--route-color:${item.color}" aria-pressed="${item === route}">${hasRoute ? "<i></i>" : ""}Day ${day.day}, ${escapeHtml(formatCompactDate(day.date))}</button>` : ""; }).join("")}</div>${travelMapMarkup(source, route)}`;
 }
 
 function setupRouteExplorer() {
@@ -176,9 +220,7 @@ function setupRouteExplorer() {
       closePopover();
       const selectedRegionId = region?.dataset.routeRegion || $("#route-explorer").dataset.region;
       const selectedDay = region ? 0 : Number(dayButton?.dataset.routeDay || 0);
-      if (selectedDay) window.openItineraryDay?.(selectedDay, { scroll: false });
       renderRoutePanel(selectedRegionId, selectedDay);
-      if (selectedDay) requestAnimationFrame(() => window.openItineraryDay?.(selectedDay, { scroll: true }));
       return;
     }
     if (event.target.closest("[data-close-route-popover]")) { closePopover(true); return; }

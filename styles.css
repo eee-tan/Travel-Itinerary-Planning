@@ -609,56 +609,9 @@ button:focus-visible,a:focus-visible {outline:2px solid var(--lake);outline-offs
   cursor: pointer;
 }
 .itinerary-edit-button[aria-pressed="true"] { color: white; border-color: var(--lake); background: var(--lake); }
-.itinerary-edit-toolbar {
-  position: sticky;
-  top: calc(52px + var(--safe-top));
-  z-index: 12;
-  min-width: 0;
-  margin: 0 0 8px 48px;
-  padding: 7px 8px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  border: 1px solid rgba(174,197,197,.9);
-  border-radius: 11px;
-  background: rgba(243,246,242,.94);
-  box-shadow: 0 7px 20px rgba(19,38,47,.08);
-  backdrop-filter: blur(10px);
-}
-.itinerary-edit-toolbar > span { margin-right: auto; color: var(--muted); font-size: 9px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
-.itinerary-edit-toolbar button {
-  min-height: 30px;
-  padding: 0 9px;
-  border: 1px solid #b8cdce;
-  border-radius: 999px;
-  color: #315e65;
-  background: rgba(255,255,255,.85);
-  font-size: 9px;
-  font-weight: 720;
-  cursor: pointer;
-}
 .day-title-editor input[readonly] { pointer-events: none; outline-color: transparent; }
 .day-title-editor input[readonly]:hover { outline-color: transparent; }
 .day-card.is-editing { border-radius: 10px; background: rgba(255,255,255,.24); }
-.day-drop-zone {
-  min-height: 34px;
-  margin: 7px 4px 2px;
-  padding: 7px 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px dashed #adc4c4;
-  border-radius: 8px;
-  color: #68807c;
-  background: rgba(238,245,242,.7);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: .05em;
-  text-transform: uppercase;
-  transition: border-color .18s ease, background .18s ease;
-}
-.day-card.is-drag-target .day-drop-zone { border-color: var(--lake); background: #dceceb; }
 .schedule-item.is-editable { cursor: grab; }
 .schedule-item.is-dragging { opacity: .35; }
 .schedule-drag-handle {
@@ -824,8 +777,8 @@ button:focus-visible,a:focus-visible {outline:2px solid var(--lake);outline-offs
 .appointment-inline-grid label { min-width: 0; display: grid; gap: 4px; color: var(--muted); font-size: 9px; font-weight: 730; }
 .appointment-inline-grid .span-all { grid-column: 1 / -1; }
 .appointment-inline-grid input,.appointment-inline-grid select {
-  width: 100%; height: 39px; min-width: 0; box-sizing: border-box; padding: 0 10px; border: 1px solid #c2d0ce;
-  border-radius: 9px; color: var(--ink); background: #fff; font-family: inherit; font-size: 11px; line-height: 39px;
+  width: 100%; height: 40px; min-width: 0; box-sizing: border-box; padding: 0 12px; border: 1px solid #c2d0ce;
+  border-radius: 10px; color: var(--ink); background: #fff; font-family: inherit; font-size: 11px; line-height: 40px;
 }
 .appointment-inline-grid input:focus,.appointment-inline-grid select:focus { outline: 2px solid rgba(40,123,144,.18); border-color: #82adb4; }
 .appointment-inline-actions { display: flex; justify-content: flex-end; gap: 7px; }
@@ -840,8 +793,8 @@ button:focus-visible,a:focus-visible {outline:2px solid var(--lake);outline-offs
 .appointment-dialog h2 { margin: 3px 0 0; font-size: 20px; }
 .appointment-dialog header button { width: 38px; height: 38px; border: 0; border-radius: 50%; background: white; font-size: 20px; }
 .appointment-form-grid { padding: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 11px; overflow: auto; }
-.appointment-form-grid label { color: var(--muted); font-size: 9px; font-weight: 730; }
-.appointment-form-grid input,.appointment-form-grid select { width: 100%; min-height: 40px; margin-top: 4px; padding: 0 10px; border: 1px solid var(--line); border-radius: 9px; background: white; font: inherit; font-size: 11px; }
+.appointment-form-grid label { width: 100%; min-width: 0; display: grid; grid-template-columns: minmax(0,1fr); align-content: start; color: var(--muted); font-size: 9px; font-weight: 730; }
+.appointment-form-grid input,.appointment-form-grid select { display: block; width: 100%; min-width: 0; height: 42px; box-sizing: border-box; margin-top: 4px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: white; font: inherit; font-size: 11px; line-height: 42px; }
 .appointment-form-grid .span-all { grid-column: 1 / -1; }
 .attachment-file-label input { padding: 8px; }
 .appointment-dialog form > footer { border-top: 1px solid var(--line); justify-content: flex-end; }
@@ -1186,7 +1139,6 @@ body.is-touch-dragging { user-select: none; -webkit-user-select: none; cursor: g
   .schedule-content,
   .schedule-map-links { min-width: 0; max-width: 100%; }
   .itinerary-section { overflow-x: clip; }
-  .itinerary-edit-toolbar { top: calc(50px + var(--safe-top)); margin-left: 38px; }
   .day-card { padding-left: 38px; }
   .day-toggle { grid-template-columns: minmax(0,1fr) 38px; padding-right: 0; }
   .day-title-editor { max-width: 100%; }
@@ -1333,43 +1285,61 @@ body.is-touch-dragging { user-select: none; -webkit-user-select: none; cursor: g
 }
 .poster-route-layer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .poster-route-layer { z-index: 2; overflow: visible; }
-.poster-marker-layer { z-index: 3; }
 .poster-route {
-  fill: none; stroke: #286f86; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round;
-  opacity: .88; filter: drop-shadow(0 1px 0 rgba(255,255,255,.92)) drop-shadow(0 1px 1px rgba(37,51,47,.14));
+  fill: none; stroke: var(--route-color, #1f4f78); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round;
+  opacity: 1; filter: drop-shadow(0 1px 0 rgba(255,255,255,.92)) drop-shadow(0 1px 1px rgba(37,51,47,.14));
   transition: opacity .18s ease,stroke-width .18s ease; vector-effect: non-scaling-stroke;
 }
 .is-daily .poster-route.is-dimmed,
-.poster-route.is-legend-muted { opacity: .075; stroke-width: 1.6; }
-.poster-route.is-legend-highlighted { opacity: 1; stroke-width: 3.8; }
+.poster-route.is-legend-muted { opacity: .16; stroke-width: 1.6; }
+.poster-route.is-legend-highlighted,
+.is-daily .poster-route.is-active { opacity: 1; stroke-width: 3.8; }
 .poster-marker-layer { position: absolute; z-index: 3; inset: 0; pointer-events: none; }
-.poster-hotel-stop {
+.poster-place-marker {
   position: absolute; left: var(--left); top: var(--top);
-  transform: translate(-50%,-50%); display: flex; align-items: center; gap: 3px;
-  white-space: nowrap;
-}
-.poster-hotel-stop b,.poster-endpoint-label {
-  padding: 2px 6px; border-radius: 5px; color: #253e43; background: rgba(255,253,247,.86);
-  box-shadow: 0 1px 3px rgba(37,51,47,.13); font: 700 10px/1.3 Georgia,"Times New Roman",serif;
-}
-.poster-hotel-marker {
-  width: 21px; height: 21px; display: grid; place-items: center; border-radius: 50%;
+  transform: translate(-50%,-50%); display: grid; place-items: center; justify-items: center;
+  border: 0; padding: 0; cursor: pointer; pointer-events: auto; background: none;
+  width: 16px; height: 16px; border-radius: 50%;
   border: 1.5px solid rgba(255,253,247,.96);
   color: #fffdf7; background: #986d48;
   box-shadow: 0 2px 5px rgba(47,43,36,.2),inset 0 1px 0 rgba(255,255,255,.3);
+  transition: opacity .18s ease, transform .18s ease;
 }
-.poster-hotel-marker svg { width: 12px; height: 12px; }
-.poster-endpoint-label { position: absolute; left: var(--left); top: var(--top); transform: translate(-100%,-50%); white-space: nowrap; }
+.poster-place-marker.is-dimmed { opacity: .3; }
+.poster-place-marker.is-active { z-index: 1; }
+.poster-place-marker:hover,.poster-place-marker:focus-visible { transform: translate(-50%,-50%) scale(1.1); }
+.poster-place-marker svg { width: 9px; height: 9px; display: block; }
+.poster-place-label {
+  padding: 2px 6px; border-radius: 5px; white-space: nowrap; pointer-events: none;
+  font: 700 10px/1.3 Georgia,"Times New Roman",serif; color: #092653;
+  background: rgba(255,253,247,.88); box-shadow: 0 1px 3px rgba(37,51,47,.14);
+  transition: opacity .18s ease;
+}
+.poster-place-label--below { position: absolute; left: 50%; top: 100%; margin-top: 6px; transform: translateX(-50%); }
+.poster-place-label--above { position: absolute; left: 50%; bottom: 100%; margin-bottom: 6px; transform: translateX(-50%); }
+.poster-place-label--right { position: absolute; left: 100%; top: 50%; margin-left: 6px; transform: translateY(-50%); }
+.poster-place-label--left { position: absolute; right: 100%; top: 50%; margin-right: 6px; transform: translateY(-50%); }
+.poster-place-marker.is-dimmed .poster-place-label { opacity: 0; }
 .poster-map-legend {
-  position: absolute; z-index: 4; right: 13px; bottom: 13px; width: auto; padding: 9px 11px;
-  display: grid; gap: 7px; border: 1px solid rgba(91,108,103,.14); border-radius: 11px;
-  color: #4e5b56; background: rgba(255,253,247,.9);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.9),0 5px 13px rgba(37,51,47,.1);
+  width: max-content; max-width: 100%; margin: 8px 1px 0; padding: 7px 10px;
+  display: flex; align-items: center; gap: 14px; border: 1px solid rgba(91,108,103,.14); border-radius: 10px;
+  color: #4e5b56; background: rgba(255,253,247,.78);
 }
 .poster-map-legend > span { display: flex; align-items: center; gap: 7px; font: 650 9px/1.2 Georgia,"Times New Roman",serif; white-space: nowrap; }
-.poster-legend-line { width: 28px; flex: 0 0 28px; border-top: 2px solid #286f86; }
+.poster-legend-line { width: 28px; flex: 0 0 28px; border-top: 2px solid #6b5844; }
 .poster-legend-hotel { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; color: #fffdf7; background: #986d48; }
 .poster-legend-hotel svg { width: 11px; height: 11px; }
+.poster-route-dates { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 5px; margin: 8px 1px 0; }
+.poster-route-key {
+  min-width: 0; min-height: 45px; padding: 6px; display: grid; grid-template-columns: 14px minmax(0,1fr); align-items: start; gap: 5px;
+  border: 1px solid rgba(91,108,103,.14); border-radius: 8px; color: #3c463f; background: rgba(255,253,247,.74);
+  text-align: left; cursor: pointer;
+}
+.poster-route-key > i { width: 14px; height: 3px; margin-top: 5px; border-radius: 2px; background: var(--route-color); }
+.poster-route-key > span { min-width: 0; display: grid; gap: 2px; }
+.poster-route-key b { font: 700 9px/1.2 Georgia,"Times New Roman",serif; }
+.poster-route-key small { min-width: 0; font: 600 8px/1.25 Georgia,"Times New Roman",serif; overflow-wrap: anywhere; }
+.poster-route-key:hover,.poster-route-key:focus-visible { border-color: var(--route-color); background: rgba(255,255,255,.94); }
 .map-utility { justify-content: flex-start; margin: 6px 1px 12px; font-size: 10px; }
 
 @media (max-width: 699px) {
@@ -1377,13 +1347,20 @@ body.is-touch-dragging { user-select: none; -webkit-user-select: none; cursor: g
   .journey-map-stage,.poster-map { border-radius: 10px; }
   .poster-route { stroke-width: 2; }
   .poster-route.is-legend-highlighted { stroke-width: 2.7; }
-  .poster-hotel-stop { gap: 2px; }
-  .poster-hotel-stop b,.poster-endpoint-label { padding: 1px 4px; font-size: 6.5px; }
-  .poster-hotel-marker { width: 14px; height: 14px; border-width: 1px; }
-  .poster-hotel-marker svg { width: 8px; height: 8px; }
-  .poster-map-legend { right: 7px; bottom: 7px; padding: 6px 7px; gap: 5px; border-radius: 8px; }
-  .poster-map-legend > span { gap: 5px; font-size: 6.5px; }
+  .poster-place-marker { width: 12px; height: 12px; border-width: 1px; }
+  .poster-place-marker svg { width: 6.5px; height: 6.5px; }
+  .poster-place-label { font-size: 8px; padding: 1px 5px; }
+  .poster-place-label--below { margin-top: 4px; }
+  .poster-place-label--above { margin-bottom: 4px; }
+  .poster-map-legend { margin-top: 6px; padding: 6px 8px; gap: 12px; border-radius: 8px; }
+  .poster-map-legend > span { gap: 5px; font-size: 7.5px; }
   .poster-legend-line { width: 20px; flex-basis: 20px; }
   .poster-legend-hotel { width: 14px; height: 14px; }
   .poster-legend-hotel svg { width: 8px; height: 8px; }
+  .poster-route-dates { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 5px; margin-top: 6px; }
+  .poster-route-key { min-height: 42px; padding: 5px; grid-template-columns: 12px minmax(0,1fr); }
+  .poster-route-key > i { width: 12px; }
+  .poster-route-key b { font-size: 8.5px; }
+  .poster-route-key small { font-size: 7.5px; }
+  .poster-route-key:last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
