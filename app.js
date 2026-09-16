@@ -458,6 +458,7 @@ function dayCard(day) {
     ? !state.collapsedEditDays.has(day.day)
     : state.expandedDay === day.day;
   const dayKey = itineraryDayKey(day);
+  const dayTitle = state.dayTitles[dayKey] || day.title;
   const schedule = (day.schedule || []).map((item) => {
     const noteKey = `${dayKey}:${item.id}`;
     const photo = state.dayPhotos[noteKey] || "";
@@ -507,11 +508,14 @@ function dayCard(day) {
         </span>
         <span class="day-chevron" aria-hidden="true">+</span>
       </button>
-      <label class="day-title-editor"><span class="sr-only">Day ${day.day} title</span><input data-day-title="${escapeHtml(dayKey)}" value="${escapeHtml(state.dayTitles[dayKey] || day.title)}" maxlength="100" aria-label="${state.editingItinerary ? "Edit" : "Locked"} Day ${day.day} title" ${state.editingItinerary ? "" : 'readonly aria-readonly="true"'}></label>
+      ${state.editingItinerary
+        ? `<label class="day-title-editor"><span class="sr-only">Day ${day.day} title</span><textarea data-day-title="${escapeHtml(dayKey)}" rows="1" maxlength="100" aria-label="Edit Day ${day.day} title">${escapeHtml(dayTitle)}</textarea></label>`
+        : `<div class="day-title-editor day-title-editor--preview">${escapeHtml(dayTitle)}</div>`}
       ${ticketSummary}
       </div>
       <div class="day-detail" id="day-detail-${day.day}" ${expanded ? "" : "hidden"}>
         <ol class="schedule">${schedule}</ol>
+        <button type="button" class="schedule-add-activity" data-add-activity="${day.day}">＋ Add new activities</button>
         ${costs ? `<div class="costs">${costs}</div>` : ""}
       </div>
     </article>
@@ -673,7 +677,7 @@ function renderTimeline() {
     if (!state.editingItinerary) {
       state.expandedDayBeforeEdit = state.expandedDay;
       state.editingItinerary = true;
-      state.collapsedEditDays.clear();
+      state.collapsedEditDays = new Set(state.data.days.map((day) => day.day));
     } else {
       state.editingItinerary = false;
       state.collapsedEditDays.clear();
@@ -687,6 +691,10 @@ function renderTimeline() {
   };
   $("#itinerary").classList.toggle("is-editing", state.editingItinerary);
   $("#timeline").innerHTML = state.data.days.map(dayCard).join("");
+  $$("[data-day-title]", $("#timeline")).forEach((input) => {
+    input.style.height = "auto";
+    input.style.height = `${input.scrollHeight}px`;
+  });
   $("#timeline").onclick = (event) => {
     const mediaButton = event.target.closest("[data-media-src]");
     if (mediaButton) { openMediaLightbox(mediaButton.dataset.mediaSrc, mediaButton.dataset.mediaAlt); return; }
@@ -718,6 +726,24 @@ function renderTimeline() {
       state.editingLocationKey = addLocation.dataset.addLocation;
       renderTimeline();
       window.setTimeout(() => $(`[data-location-form="${CSS.escape(state.editingLocationKey)}"] input`)?.focus(), 0);
+      return;
+    }
+    const addActivity = event.target.closest("[data-add-activity]");
+    if (addActivity) {
+      const day = state.data.days.find((entry) => entry.day === Number(addActivity.dataset.addActivity));
+      if (!day) return;
+      if (!state.editingItinerary) {
+        state.expandedDayBeforeEdit = day.day;
+        state.editingItinerary = true;
+        state.collapsedEditDays = new Set(state.data.days.map((entry) => entry.day));
+      }
+      const item = { id: `custom-activity-${crypto.randomUUID()}`, time: "TBD", text: "" };
+      day.schedule.push(item);
+      state.collapsedEditDays.delete(day.day);
+      captureItinerarySchedule();
+      savePersonalState();
+      renderTimeline();
+      $(`.schedule-item[data-schedule-id="${item.id}"] [data-schedule-field="text"]`)?.focus();
       return;
     }
     if (event.target.closest("[data-cancel-location]")) {
@@ -828,6 +854,12 @@ function renderTimeline() {
     updateInlineTicketState(checkbox.value, checkbox.checked);
   };
   $("#timeline").oninput = (event) => {
+    const titleInput = event.target.closest("[data-day-title]");
+    if (titleInput && state.editingItinerary) {
+      titleInput.style.height = "auto";
+      titleInput.style.height = `${titleInput.scrollHeight}px`;
+      return;
+    }
     const timeInput = event.target.closest('[data-schedule-field="time"]');
     if (!timeInput || !state.editingItinerary) return;
     const formatted = normalizeItineraryTime(timeInput.value);
@@ -1179,17 +1211,44 @@ function personalStateSnapshot() {
   };
 }
 
-function mergeInitialWorkspace(remotePayload, localPayload) {
-  const localWins = (localPayload.customAppointments?.length || 0) > (remotePayload.customAppointments?.length || 0);
-  const primary = localWins ? remotePayload : localPayload;
-  const secondary = localWins ? localPayload : remotePayload;
-  const objectFields = ["dayNotes", "dayPhotos", "dayTitles", "itinerarySchedule", "itineraryLocations", "appointmentMedia", "appointmentEdits"];
-  const merged = { ...primary, ...secondary, schemaVersion: 1, savedAt: new Date().toISOString() };
-  objectFields.forEach((field) => { merged[field] = { ...(primary[field] || {}), ...(secondary[field] || {}) }; });
-  const mergeRecords = (first = [], second = []) => [...new Map([...first, ...second].map((item) => [String(item?.id || JSON.stringify(item)), item])).values()];
-  merged.customAppointments = mergeRecords(remotePayload.customAppointments, localPayload.customAppointments);
-  merged.expenses = mergeRecords(remotePayload.expenses, localPayload.expenses);
+const workspaceObjectFields = ["dayNotes", "dayPhotos", "dayTitles", "itineraryLocations", "appointmentMedia", "appointmentEdits"];
+
+function localWorkspaceSnapshot() {
+  return { ...personalStateSnapshot(), savedAt: localStorage.getItem(personalStorageKey("saved-at")) || "" };
+}
+
+function mergeWorkspaceSnapshots(remote, local) {
+  const localIsNewer = Date.parse(local.savedAt || "") > Date.parse(remote.savedAt || "");
+  const newer = localIsNewer ? local : remote;
+  const older = localIsNewer ? remote : local;
+  const merged = { ...remote, schemaVersion: 1, savedAt: newer.savedAt || remote.savedAt || local.savedAt || "" };
+  workspaceObjectFields.forEach((field) => { merged[field] = { ...(older[field] || {}), ...(newer[field] || {}) }; });
+  merged.itinerarySchedule = {};
+  for (const dayKey of new Set([...Object.keys(remote.itinerarySchedule || {}), ...Object.keys(local.itinerarySchedule || {})])) {
+    const primary = newer.itinerarySchedule?.[dayKey];
+    const secondary = older.itinerarySchedule?.[dayKey];
+    const chosen = Array.isArray(primary) ? primary : Array.isArray(secondary) ? secondary : [];
+    const chosenIds = new Set(chosen.map((item) => String(item.id)));
+    merged.itinerarySchedule[dayKey] = [
+      ...chosen,
+      ...(Array.isArray(secondary) ? secondary.filter((item) => !chosenIds.has(String(item.id))) : [])
+    ];
+  }
+  for (const field of ["customAppointments", "expenses"]) {
+    const records = new Map();
+    for (const item of newer[field] || []) records.set(String(item?.id || JSON.stringify(item)), item);
+    for (const item of older[field] || []) {
+      const key = String(item?.id || JSON.stringify(item));
+      if (!records.has(key)) records.set(key, item);
+    }
+    merged[field] = [...records.values()];
+  }
   return merged;
+}
+
+function workspaceContent(payload) {
+  const { savedAt, ...content } = payload || {};
+  return JSON.stringify(content);
 }
 
 function applyPersonalStateSnapshot(payload) {
@@ -1229,14 +1288,16 @@ async function loadWorkspaceState({ refreshViews = false } = {}) {
   if (state.editingItinerary || state.editingAppointmentId) return;
   const remote = await requestWorkspace();
   const migrationKey = personalStorageKey("workspace-migrated-v1");
-  const migrationComplete = localStorage.getItem(migrationKey) === "1";
   if (!remote.payload) {
     const created = await requestWorkspace("POST", personalStateSnapshot());
     workspaceLastUpdatedAt = created.updatedAt || null;
     localStorage.setItem(migrationKey, "1");
   } else if (remote.updatedAt !== workspaceLastUpdatedAt) {
-    const nextPayload = migrationComplete ? remote.payload : mergeInitialWorkspace(remote.payload, personalStateSnapshot());
-    if (!migrationComplete && JSON.stringify(nextPayload) !== JSON.stringify(remote.payload)) {
+    const local = localWorkspaceSnapshot();
+    const reconcile = Boolean(local.savedAt && Date.parse(local.savedAt) > Date.parse(remote.payload.savedAt || ""));
+    const nextPayload = reconcile ? mergeWorkspaceSnapshots(remote.payload, local) : remote.payload;
+    if (workspaceContent(nextPayload) !== workspaceContent(remote.payload)) {
+      nextPayload.savedAt = new Date().toISOString();
       const merged = await requestWorkspace("POST", nextPayload);
       workspaceLastUpdatedAt = merged.updatedAt || remote.updatedAt || null;
     } else {
@@ -1244,7 +1305,7 @@ async function loadWorkspaceState({ refreshViews = false } = {}) {
     }
     applyPersonalStateSnapshot(nextPayload);
     localStorage.setItem(migrationKey, "1");
-    savePersonalState({ syncRemote: false });
+    savePersonalState({ syncRemote: false, savedAt: nextPayload.savedAt || remote.updatedAt });
     if (refreshViews) renderPersonalViews();
   }
   workspaceSyncReady = true;
@@ -1255,8 +1316,23 @@ function scheduleWorkspacePush() {
   window.clearTimeout(workspacePushTimer);
   workspacePushTimer = window.setTimeout(async () => {
     try {
-      const saved = await requestWorkspace("POST", personalStateSnapshot());
+      const local = localWorkspaceSnapshot();
+      const remote = await requestWorkspace();
+      const nextPayload = remote.payload && remote.updatedAt !== workspaceLastUpdatedAt
+        ? mergeWorkspaceSnapshots(remote.payload, local)
+        : local;
+      if (workspaceContent(nextPayload) === workspaceContent(remote.payload)) {
+        workspaceLastUpdatedAt = remote.updatedAt || workspaceLastUpdatedAt;
+        return;
+      }
+      nextPayload.savedAt = new Date().toISOString();
+      const saved = await requestWorkspace("POST", nextPayload);
       workspaceLastUpdatedAt = saved.updatedAt || workspaceLastUpdatedAt;
+      if (nextPayload !== local && !state.editingItinerary && !state.editingAppointmentId) {
+        applyPersonalStateSnapshot(nextPayload);
+        savePersonalState({ syncRemote: false, savedAt: nextPayload.savedAt });
+        renderPersonalViews();
+      }
     } catch (error) {
       console.error("Cross-device workspace sync failed", error);
     }
@@ -1306,7 +1382,7 @@ function loadPersonalState() {
   } catch { state.expenses = structuredClone(state.data.expenses?.items || []); }
 }
 
-function savePersonalState({ syncRemote = true } = {}) {
+function savePersonalState({ syncRemote = true, savedAt = null } = {}) {
   localStorage.setItem(personalStorageKey("day-notes"), JSON.stringify(state.dayNotes));
   localStorage.setItem(personalStorageKey("day-photos"), JSON.stringify(state.dayPhotos));
   localStorage.setItem(personalStorageKey("day-titles"), JSON.stringify(state.dayTitles));
@@ -1316,7 +1392,7 @@ function savePersonalState({ syncRemote = true } = {}) {
   localStorage.setItem(personalStorageKey("appointment-edits"), JSON.stringify(state.appointmentEdits));
   localStorage.setItem(personalStorageKey("custom-appointments"), JSON.stringify(state.customAppointments));
   localStorage.setItem(personalStorageKey("expenses"), JSON.stringify(state.expenses));
-  localStorage.setItem(personalStorageKey("saved-at"), new Date().toISOString());
+  localStorage.setItem(personalStorageKey("saved-at"), savedAt || new Date().toISOString());
   if (syncRemote) scheduleWorkspacePush();
 }
 
