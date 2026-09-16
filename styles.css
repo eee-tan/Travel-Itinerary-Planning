@@ -796,7 +796,8 @@ button:focus-visible,a:focus-visible {outline:2px solid var(--lake);outline-offs
 .appointment-form-grid label { width: 100%; min-width: 0; display: grid; grid-template-columns: minmax(0,1fr); align-content: start; color: var(--muted); font-size: 9px; font-weight: 730; }
 .appointment-form-grid input,.appointment-form-grid select { display: block; width: 100%; min-width: 0; height: 42px; box-sizing: border-box; margin-top: 4px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: white; font: inherit; font-size: 11px; line-height: 42px; }
 .appointment-form-grid .span-all { grid-column: 1 / -1; }
-.attachment-file-label input { padding: 8px; }
+.appointment-form-grid select[name="type"] { appearance: none; padding-right: 38px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath d='m3 5 4 4 4-4' fill='none' stroke='%2319282c' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; }
+.appointment-form-grid .attachment-file-label input { display: flex; align-items: center; padding: 9px 8px; line-height: 22px; text-align: left; }
 .appointment-dialog form > footer { border-top: 1px solid var(--line); justify-content: flex-end; }
 .appointment-dialog footer button { min-height: 40px; padding: 0 14px; border: 0; border-radius: 9px; background: white; color: var(--muted); font-size: 11px; }
 .appointment-dialog footer button[type="submit"] { color: white; background: var(--lake); font-weight: 750; }
@@ -854,8 +855,8 @@ button:focus-visible,a:focus-visible {outline:2px solid var(--lake);outline-offs
   .appointment-card { grid-template-columns: 67px minmax(0,1fr) 62px; gap: 8px; padding: 9px; }
   .appointment-thumb { width: 58px; height: 48px; }
   .appointment-times { grid-template-columns: 1fr 1fr; }
-  .appointment-form-grid { grid-template-columns: 1fr; }
-  .appointment-form-grid .span-all { grid-column: auto; }
+  .appointment-form-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .appointment-form-grid .span-all { grid-column: 1 / -1; }
   .journey-map-layout { grid-template-columns: 1fr; }
   .expense-form { width: 100%; padding: 11px; grid-template-columns: 1fr; }
   .expense-form > div,.expense-address,.expense-conversion,.expense-form > button { width: 100%; grid-column: 1; }
@@ -1320,23 +1321,30 @@ body.is-touch-dragging { user-select: none; -webkit-user-select: none; cursor: g
 .poster-place-label--right { position: absolute; left: 100%; top: 50%; margin-left: 6px; transform: translateY(-50%); }
 .poster-place-label--left { position: absolute; right: 100%; top: 50%; margin-right: 6px; transform: translateY(-50%); }
 .poster-place-marker.is-dimmed .poster-place-label { opacity: 0; }
+.poster-map-tools { margin: 8px 1px 0; display: flex; align-items: stretch; justify-content: space-between; gap: 8px; }
 .poster-map-legend {
-  width: max-content; max-width: 100%; margin: 8px 1px 0; padding: 7px 10px;
+  width: max-content; max-width: 100%; margin: 0; padding: 7px 10px;
   display: flex; align-items: center; gap: 14px; border: 1px solid rgba(91,108,103,.14); border-radius: 10px;
   color: #4e5b56; background: rgba(255,253,247,.78);
 }
+.poster-google-route {
+  min-height: 36px; padding: 0 11px; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(91,108,103,.18); border-radius: 10px; color: #315e65; background: rgba(255,253,247,.78);
+  font: 700 9px/1.2 Georgia,"Times New Roman",serif; text-decoration: none; white-space: nowrap;
+}
+.poster-google-route:hover,.poster-google-route:focus-visible { border-color: #7ca6aa; background: rgba(255,255,255,.96); }
 .poster-map-legend > span { display: flex; align-items: center; gap: 7px; font: 650 9px/1.2 Georgia,"Times New Roman",serif; white-space: nowrap; }
 .poster-legend-line { width: 28px; flex: 0 0 28px; border-top: 2px solid #6b5844; }
 .poster-legend-hotel { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; color: #fffdf7; background: #986d48; }
 .poster-legend-hotel svg { width: 11px; height: 11px; }
-.poster-route-dates { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 5px; margin: 8px 1px 0; }
+.poster-route-dates { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 5px; margin: 8px 1px 0; }
 .poster-route-key {
-  min-width: 0; min-height: 45px; padding: 6px; display: grid; grid-template-columns: 14px minmax(0,1fr); align-items: start; gap: 5px;
+  min-width: 0; min-height: 38px; padding: 5px 7px; display: grid; grid-template-columns: 12px minmax(0,1fr); align-items: center; gap: 5px;
   border: 1px solid rgba(91,108,103,.14); border-radius: 8px; color: #3c463f; background: rgba(255,253,247,.74);
   text-align: left; cursor: pointer;
 }
-.poster-route-key > i { width: 14px; height: 3px; margin-top: 5px; border-radius: 2px; background: var(--route-color); }
-.poster-route-key > span { min-width: 0; display: grid; gap: 2px; }
+.poster-route-key > i { width: 12px; height: 3px; border-radius: 2px; background: var(--route-color); }
+.poster-route-key > span { min-width: 0; display: grid; align-content: center; justify-items: start; gap: 1px; text-align: left; }
 .poster-route-key b { font: 700 9px/1.2 Georgia,"Times New Roman",serif; }
 .poster-route-key small { min-width: 0; font: 600 8px/1.25 Georgia,"Times New Roman",serif; overflow-wrap: anywhere; }
 .poster-route-key:hover,.poster-route-key:focus-visible { border-color: var(--route-color); background: rgba(255,255,255,.94); }
@@ -1352,13 +1360,15 @@ body.is-touch-dragging { user-select: none; -webkit-user-select: none; cursor: g
   .poster-place-label { font-size: 8px; padding: 1px 5px; }
   .poster-place-label--below { margin-top: 4px; }
   .poster-place-label--above { margin-bottom: 4px; }
-  .poster-map-legend { margin-top: 6px; padding: 6px 8px; gap: 12px; border-radius: 8px; }
+  .poster-map-tools { margin-top: 6px; flex-wrap: wrap; }
+  .poster-map-legend { padding: 6px 8px; gap: 12px; border-radius: 8px; }
+  .poster-google-route { min-height: 30px; padding-inline: 9px; font-size: 7.5px; }
   .poster-map-legend > span { gap: 5px; font-size: 7.5px; }
   .poster-legend-line { width: 20px; flex-basis: 20px; }
   .poster-legend-hotel { width: 14px; height: 14px; }
   .poster-legend-hotel svg { width: 8px; height: 8px; }
   .poster-route-dates { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 5px; margin-top: 6px; }
-  .poster-route-key { min-height: 42px; padding: 5px; grid-template-columns: 12px minmax(0,1fr); }
+  .poster-route-key { min-height: 38px; padding: 5px 6px; grid-template-columns: 11px minmax(0,1fr); }
   .poster-route-key > i { width: 12px; }
   .poster-route-key b { font-size: 8.5px; }
   .poster-route-key small { font-size: 7.5px; }

@@ -1138,19 +1138,17 @@ function setupAppointmentDialog() {
     event.preventDefault();
     const data = new FormData(form);
     const id = `appointment-${Date.now()}`;
-    const item = Object.fromEntries(["type", "date", "title", "start", "end", "location", "address", "booking", "attachmentUrl"].map((key) => [key, String(data.get(key) || "").trim()]));
+    const item = Object.fromEntries(["type", "date", "title", "start", "end", "booking"].map((key) => [key, String(data.get(key) || "").trim()]));
     item.id = id;
-    const parsedLocation = locationFromInput(item.address || item.location, /^https?:\/\//i.test(item.location) ? item.title : (item.location || item.title));
-    item.locationLabel = parsedLocation.source === "address" && item.location ? item.location : parsedLocation.label;
+    const locationInput = String(data.get("location") || "").trim();
+    const parsedLocation = locationFromInput(locationInput, item.title);
+    item.location = parsedLocation.label;
+    item.address = locationInput;
+    item.locationLabel = parsedLocation.label;
     item.mapQuery = parsedLocation.query;
     item.mapUrl = parsedLocation.url;
-    if (/^https?:\/\//i.test(item.location)) item.location = parsedLocation.label;
-    const safeLink = /^https?:\/\//i.test(item.attachmentUrl) ? safeExternalUrl(item.attachmentUrl) : "";
-    if (item.attachmentUrl && !safeLink) { window.alert("Please enter a valid http(s) image link."); return; }
     const file = form.elements.attachmentFile.files?.[0];
     if (file) state.appointmentMedia[id] = await imageFileToDataUrl(file);
-    else if (safeLink) state.appointmentMedia[id] = safeLink;
-    delete item.attachmentUrl;
     state.customAppointments.push(item);
     savePersonalState();
     dialog.close?.();

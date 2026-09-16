@@ -11,13 +11,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260915-2">
+  <link rel="stylesheet" href="styles.css?v=20260916-2">
   <script src="trip-data.js?v=20260915-1" defer></script>
   <script src="runtime-storage.js?v=20260910-2" defer></script>
   <script src="overview-map.js?v=20260910-2" defer></script>
-  <script src="route-ui.js?v=20260915-2" defer></script>
+  <script src="route-ui.js?v=20260916-1" defer></script>
   <script src="location-utils.js?v=20260914-1" defer></script>
-  <script src="app.js?v=20260915-1" defer></script>
+  <script src="app.js?v=20260916-1" defer></script>
   <script src="ticket-pdf-preview.js?v=20260910-2" defer></script>
   <script src="site-navigation.js?v=20260910-2" defer></script>
 </head>
@@ -141,15 +141,13 @@
     <form method="dialog" id="appointment-form">
       <header><div><span>NEW BOOKING</span><h2 id="appointment-dialog-title">Add New Appointment</h2></div><button type="button" data-close-appointment aria-label="Close">×</button></header>
       <div class="appointment-form-grid">
-        <label>Type<select name="type"><option>Hotel</option><option>Restaurant</option><option>Activity</option><option>Car rental</option><option>Other</option></select></label>
-        <label>Date<input name="date" type="date" required></label>
-        <label class="span-all">Title<input name="title" maxlength="100" required placeholder="Reservation name"></label>
-        <label>Start / Check-in<input name="start" placeholder="15:00"></label>
-        <label>End / Check-out<input name="end" placeholder="11:00"></label>
-        <label class="span-all">Location<input name="location" maxlength="220" placeholder="Official venue or area name"></label>
-        <label class="span-all">Google Maps place, address or link<input name="address" maxlength="1000" placeholder="Paste a place name, full address, or Google Maps URL"></label>
-        <label>Booking number<input name="booking" maxlength="80"></label>
-        <label>Image link<input name="attachmentUrl" type="url" placeholder="https://…"></label>
+        <label class="span-all">Type<select name="type"><option>Hotel</option><option>Restaurant</option><option>Activity</option><option>Car rental</option><option>Other</option></select></label>
+        <label class="span-all">Date<input name="date" type="date" required></label>
+        <label class="span-all">Title<input name="title" maxlength="100" required placeholder="Hotel Name"></label>
+        <label class="appointment-time-field">Start / Check-in<input name="start" type="time" aria-label="Start or check-in time"></label>
+        <label class="appointment-time-field">End / Check-out<input name="end" type="time" aria-label="End or check-out time"></label>
+        <label class="span-all">Location<input name="location" maxlength="1000" placeholder="Google Maps place, full address, or link"></label>
+        <label class="span-all">Booking number<input name="booking" maxlength="80"></label>
         <label class="span-all attachment-file-label">Screenshot / image<input name="attachmentFile" type="file" accept="image/*"></label>
       </div>
       <footer><button type="button" data-close-appointment>Cancel</button><button type="submit" value="save">Save Appointment</button></footer>

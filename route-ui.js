@@ -12,25 +12,23 @@ const journeyColors = [
 ];
 const transferRouteColors = new Map([
   [4, "#397dc1"], [6, "#2b8c89"], [9, "#718a4a"], [11, "#8865a5"],
-  [13, "#b8674f"], [15, "#c4902f"], [17, "#b75f7a"]
+  [13, "#b8674f"], [15, "#c4902f"]
 ]);
 const transferRouteLabels = new Map([
   [4, ["Tokyo", "Minakami"]],
-  [6, ["Minakami", "Tonami, Toyama"]],
-  [9, ["Tonami, Toyama", "Nagoya"]],
-  [11, ["Nagoya", "Matsushiro, Nagano"]],
-  [13, ["Matsushiro, Nagano", "Hakone"]],
-  [15, ["Hakone", "Kawagoe"]],
-  [17, ["Kawagoe", "Haneda Airport"]]
+  [6, ["Minakami", "Toyama"]],
+  [9, ["Toyama", "Nagoya"]],
+  [11, ["Nagoya", "Nagano"]],
+  [13, ["Nagano", "Hakone"]],
+  [15, ["Hakone", "Kawagoe"]]
 ]);
 const transferPlaceIds = new Map([
-  [4, ["place-tokyo", "place-minakami"]],
+  [4, ["place-haneda", "place-minakami"]],
   [6, ["place-minakami", "place-tonami"]],
   [9, ["place-tonami", "place-nagoya"]],
   [11, ["place-nagoya", "place-nagano"]],
   [13, ["place-nagano", "place-hakone"]],
-  [15, ["place-hakone", "place-kawagoe"]],
-  [17, ["place-kawagoe", "place-haneda"]]
+  [15, ["place-hakone", "place-kawagoe"]]
 ]);
 
 function mapRouteDefinitions(source) {
@@ -87,29 +85,47 @@ function geographicRoutePath(points) {
 }
 
 const posterTransferRoutes = [
-  { day: 4, points: [[139.650293,35.676178],[139.618470,35.749149],[139.546461,35.791213],[139.447054,35.908865],[139.383120,35.956658],[139.377153,36.035820],[139.273713,36.108737],[139.141723,36.245414],[139.091183,36.307446],[139.011736,36.467476],[139.032095,36.512396],[139.062980,36.607361],[139.063689,36.667522],[138.976339,36.712120],[138.965710,36.779622],[138.974817,36.793195]] },
-  { day: 6, points: [[138.974817,36.793195],[138.849247,36.887219],[138.802860,36.948977],[138.739377,36.988148],[138.663733,37.043438],[138.608070,37.087129],[138.541282,37.159476],[138.442254,37.155227],[138.266197,37.172802],[138.151460,37.160716],[138.038248,37.121482],[137.911291,37.058806],[137.779079,37.016990],[137.606806,36.972383],[137.448865,36.852899],[137.342775,36.715389],[137.230443,36.646228],[137.090859,36.692917],[136.952358,36.624422],[136.962987,36.580970]] },
-  { day: 9, points: [[136.962987,36.580970],[137.008962,36.552346],[136.991387,36.498453],[136.973558,36.442131],[136.919097,36.401007],[136.868366,36.374067],[136.900284,36.318895],[136.877440,36.223954],[136.910719,36.148709],[136.943347,36.086835],[136.901678,35.998543],[136.876840,35.951668],[136.913675,35.782536],[136.951347,35.731874],[136.936313,35.604171],[136.899444,35.492814],[136.994183,35.445452],[136.993700,35.386298],[136.913822,35.318869],[136.914478,35.174085],[136.888956,35.169134]] },
-  { day: 11, points: [[136.888956,35.169134],[136.942841,35.204176],[137.015809,35.281128],[137.107837,35.332845],[137.188571,35.366482],[137.278066,35.400224],[137.394160,35.454178],[137.512169,35.490478],[137.597117,35.587066],[137.693392,35.697496],[137.682448,35.831430],[137.759482,35.880151],[137.850259,35.992173],[137.935629,36.115071],[137.943057,36.173985],[137.938779,36.231262],[137.923882,36.325178],[138.011641,36.403252],[138.058963,36.481226],[138.098687,36.534648],[138.156626,36.559297],[138.196610,36.565332]] },
-  { day: 13, points: [[138.196610,36.565332],[138.139238,36.544643],[138.196208,36.473954],[138.307017,36.408148],[138.433507,36.342086],[138.465710,36.274356],[138.486148,36.168675],[138.483271,36.094309],[138.493834,36.003241],[138.474598,35.958408],[138.439467,35.925487],[138.433270,35.841449],[138.417576,35.782537],[138.530452,35.663503],[138.573483,35.599234],[138.624780,35.528829],[138.606978,35.477965],[138.571896,35.387448],[138.611367,35.273481],[138.754129,35.239229],[138.874308,35.239382],[138.978755,35.230924],[139.026621,35.192036]] },
-  { day: 15, points: [[139.026621,35.192036],[139.061266,35.214420],[139.132789,35.245246],[139.200153,35.290116],[139.234175,35.353173],[139.291227,35.403708],[139.396003,35.428260],[139.487743,35.512313],[139.599741,35.623492],[139.618470,35.749149],[139.573976,35.767276],[139.508639,35.830582],[139.457451,35.893453],[139.481952,35.906057]] },
-  { day: 17, points: [[139.481952,35.906057],[139.459553,35.893138],[139.508777,35.830643],[139.574114,35.767361],[139.618778,35.749233],[139.614389,35.677429],[139.688187,35.682554],[139.711028,35.628973],[139.752556,35.617252],[139.759867,35.570400],[139.789708,35.547786],[139.783197,35.550973]] }
+  { day: 4, points: [[139.750794,35.550666],[139.753231,35.616564],[139.690114,35.650511],[139.682786,35.696969],[139.614942,35.708093],[139.61847,35.749149],[139.546461,35.791213],[139.477122,35.879696],[139.382907,35.956947],[139.377153,36.03582],[139.228994,36.136466],[139.141723,36.245414],[139.099358,36.264706],[139.091183,36.307446],[139.031982,36.365007],[139.011736,36.467476],[139.061454,36.563192],[139.079426,36.644492],[138.976848,36.711492],[138.956936,36.785165]] },
+  { day: 6, points: [[138.956936,36.785165],[138.974773,36.746954],[138.849247,36.887219],[138.840151,36.927179],[138.80286,36.948977],[138.807764,36.98441],[138.739377,36.988148],[138.694819,37.051073],[138.663733,37.043438],[138.541282,37.159476],[138.101389,37.173891],[138.038248,37.121482],[137.850503,37.044796],[137.852668,37.026689],[137.835408,37.018145],[137.606806,36.972383],[137.530123,36.92891],[137.448865,36.852899],[137.378448,36.74006],[137.312039,36.675197],[137.230443,36.646228],[137.150203,36.681795],[137.06562,36.689873],[136.995385,36.660474],[136.988095,36.630003],[137.016552,36.614252]] },
+  { day: 9, points: [[137.016552,36.614252],[136.987067,36.585807],[137.008973,36.551821],[136.988036,36.527959],[136.970574,36.435813],[136.918826,36.400894],[136.885019,36.403164],[136.868422,36.374818],[136.900284,36.318895],[136.889183,36.294483],[136.906487,36.261775],[136.87744,36.223954],[136.898093,36.202413],[136.905846,36.126631],[136.943347,36.086835],[136.948998,36.048962],[136.88999,36.000004],[136.87684,35.951668],[136.830184,35.927876],[136.913675,35.782536],[136.940066,35.767814],[136.948968,35.691302],[136.967697,35.681468],[136.936313,35.604171],[136.948678,35.59432],[136.914536,35.562366],[136.899444,35.492814],[136.933643,35.458444],[137.013076,35.450114],[136.9937,35.386298],[136.93173,35.353431],[136.913822,35.318869],[136.914478,35.174085],[136.889231,35.169194]] },
+  { day: 11, points: [[136.889231,35.169194],[136.919422,35.174313],[136.94791,35.228424],[137.040844,35.319019],[137.158851,35.343337],[137.188571,35.366482],[137.233891,35.361938],[137.335411,35.432482],[137.512169,35.490478],[137.545505,35.548781],[137.537237,35.583239],[137.597117,35.587066],[137.626421,35.66441],[137.715051,35.72231],[137.682448,35.83143],[137.759482,35.880151],[137.771629,35.920628],[137.850259,35.992173],[137.935629,36.115071],[137.980927,36.1184],[137.929812,36.206791],[137.938779,36.231262],[137.923882,36.325178],[137.98661,36.359243],[138.011641,36.403252],[138.008765,36.438858],[138.091872,36.498213],[138.079556,36.51122],[138.098687,36.534648],[138.201083,36.572053]] },
+  { day: 13, points: [[138.201083,36.572053],[138.139223,36.544999],[138.204009,36.447677],[138.480104,36.313159],[138.456301,36.230036],[138.486148,36.168675],[138.466953,36.055636],[138.493834,36.003241],[138.510477,36.004188],[138.439467,35.925487],[138.417576,35.782537],[138.537817,35.643975],[138.571007,35.632981],[138.573483,35.599234],[138.598279,35.569133],[138.593462,35.537062],[138.62478,35.528829],[138.608645,35.446201],[138.571896,35.387448],[138.611367,35.273481],[138.754129,35.239229],[138.816265,35.261083],[138.918728,35.215889],[138.978755,35.230924],[138.986374,35.199377],[139.026325,35.190999]] },
+  { day: 15, points: [[139.026325,35.190999],[139.132789,35.245246],[139.154287,35.282233],[139.239615,35.308465],[139.234175,35.353173],[139.291227,35.403708],[139.396003,35.42826],[139.534822,35.537509],[139.599741,35.623492],[139.626186,35.627622],[139.613241,35.668648],[139.61847,35.749149],[139.573976,35.767276],[139.508639,35.830582],[139.457451,35.893453],[139.480798,35.90549]] }
 ];
+
+const posterRouteStops = [
+  { id: "place-haneda", label: "Tokyo", mapLabel: "Tokyo", query: "Nissan Rent-a-car, 5 Chome-3-1 Haneda, Ota City, Tokyo 144-0043, Japan", geo: { lat: 35.5506924, lng: 139.7506552 } },
+  { id: "place-minakami", label: "Minakami", mapLabel: "Minakami", query: "Bettei Senjyuan, 614 Tanigawa, Minakami, Gunma 379-1619, Japan", geo: { lat: 36.7854796, lng: 138.9574947 } },
+  { id: "place-tonami", label: "Toyama", mapLabel: "Toyama", query: "Mercure Toyama Tonami Resort & Spa, 330 Tenno, Yasukawa, Tonami, Toyama 939-1438, Japan", geo: { lat: 36.6145447, lng: 137.0169883 } },
+  { id: "place-nagoya", label: "Nagoya", mapLabel: "Nagoya", query: "ibis Styles Nagoya, 4 Chome-22-24 Meieki, Nakamura Ward, Nagoya, Aichi 450-0002, Japan", geo: { lat: 35.1690479, lng: 136.8892791 } },
+  { id: "place-nagano", label: "Nagano", mapLabel: "Nagano", query: "Mercure Nagano Matsushiro Resort & Spa, 1372-1 Matsushiromachi Nishiderao, Nagano 381-1215, Japan", geo: { lat: 36.5715514, lng: 138.2006133 } },
+  { id: "place-hakone", label: "Hakone", mapLabel: "Hakone", query: "Hakone Hotel, 65 Hakone, Ashigarashimo District, Kanagawa 250-0521, Japan", geo: { lat: 35.1907129, lng: 139.0260216 } },
+  { id: "place-kawagoe", label: "Kawagoe", mapLabel: "Kawagoe", query: "Kawagoe Tobu Hotel, 8-1 Wakitahoncho, Kawagoe, Saitama 350-1123, Japan", geo: { lat: 35.9057121, lng: 139.4812316 } }
+];
+
+function googleDirectionsUrl(stops) {
+  return `https://www.google.com/maps/dir/${stops.map((stop) => `${stop.geo.lat},${stop.geo.lng}`).join("/")}/?travelmode=driving`;
+}
 
 function hotelIconMarkup() {
   return '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 4.6 20 11.2V19.4H14.4V14.6H9.6V19.4H4V11.2Z"/></svg>';
 }
 
-const posterLabelPlacement = { "place-kawagoe": "left", "place-tokyo": "above", "place-haneda": "left" };
+function flightIconMarkup() {
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5Z"/></svg>';
+}
+
+const posterLabelPlacement = { "place-haneda": "left", "place-minakami": "right", "place-tonami": "below", "place-nagoya": "above", "place-nagano": "right", "place-hakone": "left", "place-kawagoe": "left" };
 
 function posterPlaceMarkupFor(source, place, isActive, roleLabel) {
   const point = posterPoint(place.geo);
-  const label = place.lines?.[0] || place.id;
+  const label = place.mapLabel || place.lines?.[0] || place.label || place.id;
+  const officialName = place.label || label;
   const placement = posterLabelPlacement[place.id] || "below";
   return `<button type="button" class="poster-place-marker${isActive ? " is-active" : " is-dimmed"}"
     style="--left:${(point.x / posterMap.width * 100).toFixed(3)}%;--top:${(point.y / posterMap.height * 100).toFixed(3)}%"
-    data-place-id="${escapeHtml(place.id)}" data-map-region="${escapeHtml(source.id || "")}" data-place-role="${escapeHtml(roleLabel)}"
-    aria-label="${escapeHtml(label)}">${hotelIconMarkup()}<span class="poster-place-label poster-place-label--${placement}">${escapeHtml(label)}</span></button>`;
+    data-place-id="${escapeHtml(place.id)}" data-place-query="${escapeHtml(place.query || officialName)}" data-place-label="${escapeHtml(officialName)}" data-map-region="${escapeHtml(source.id || "")}" data-place-role="${escapeHtml(roleLabel)}"
+    aria-label="${escapeHtml(officialName)}">${place.id === "place-haneda" ? flightIconMarkup() : hotelIconMarkup()}<span class="poster-place-label poster-place-label--${placement}">${escapeHtml(label)}</span></button>`;
 }
 
 function posterRouteColor(day) {
@@ -125,7 +141,7 @@ function posterMapMarkup(source, visiblePlaceIds, selectedRoute) {
     return `<path class="poster-route${isActive ? " is-active" : " is-dimmed"}" data-poster-route-day="${transfer.day}" style="--route-color:${posterRouteColor(transfer.day)}" d="${path}"/>`;
   }).join("");
   const roleLabel = selectedRoute ? `Day ${selectedRoute.day}` : "Overview";
-  const places = placeLayersFor(source).filter((place) => Number.isFinite(Number(place.geo?.lat)) && Number.isFinite(Number(place.geo?.lng)));
+  const places = posterRouteStops;
   const placeMarkup = places
     .map((place) => posterPlaceMarkupFor(source, place, !selectedRoute || activeIds.has(place.id), roleLabel))
     .join("");
@@ -143,7 +159,7 @@ function posterRouteDatesMarkup() {
     const [from, to] = transferRouteLabels.get(transfer.day);
     return `<button type="button" class="poster-route-key" data-poster-legend-day="${transfer.day}" style="--route-color:${posterRouteColor(transfer.day)}" aria-label="Highlight Day ${day.day}: ${escapeHtml(from)} to ${escapeHtml(to)}"><i></i><span><b>${escapeHtml(formatCompactDate(day.date))}</b><small>${escapeHtml(from)} → ${escapeHtml(to)}</small></span></button>`;
   }).join("");
-  return `<div class="poster-route-dates" role="list" aria-label="Seven accommodation routes by date">${rows}</div>`;
+  return `<div class="poster-route-dates" role="list" aria-label="Six driving legs by date">${rows}</div>`;
 }
 
 function travelMapMarkup(source, route) {
@@ -154,6 +170,9 @@ function travelMapMarkup(source, route) {
     ? (transferPlaceIds.get(route.day) || layout?.places || [])
     : (source.overviewPlaceIds || placeLayers.map((place) => place.id));
   const transferLabel = route && transferRouteLabels.get(route.day);
+  const googleStops = route
+    ? (transferPlaceIds.get(route.day) || []).map((id) => posterRouteStops.find((stop) => stop.id === id)).filter(Boolean)
+    : posterRouteStops;
   const mapNote = route
     ? `Day ${day.day} · ${formatFullCompactDate(day.date)}${transferLabel ? ` · ${transferLabel[0]} → ${transferLabel[1]}` : ""}`
     : "Kanto & Chubu · 17-day overview";
@@ -163,7 +182,7 @@ function travelMapMarkup(source, route) {
         ${posterMapMarkup(source, visiblePlaceIds, route)}
       </div>
     </div>
-    ${posterLegendMarkup()}
+    <div class="poster-map-tools">${posterLegendMarkup()}<a class="poster-google-route" href="${escapeHtml(googleDirectionsUrl(googleStops))}" target="_blank" rel="noopener noreferrer">Open in Google Maps ↗</a></div>
     ${route ? "" : posterRouteDatesMarkup()}
     <div class="map-utility"><span>${escapeHtml(mapNote)} · Fixed illustrated route poster</span></div>
   </div>`;
@@ -173,6 +192,7 @@ function posterLegendMarkup() {
   return `<aside class="poster-map-legend" aria-label="Map legend">
     <span><i class="poster-legend-line"></i>Route</span>
     <span><i class="poster-legend-hotel">${hotelIconMarkup()}</i>Hotel</span>
+    <span><i class="poster-legend-hotel">${flightIconMarkup()}</i>Flight</span>
   </aside>`;
 }
 
@@ -221,13 +241,16 @@ function setupRouteExplorer() {
       const selectedRegionId = region?.dataset.routeRegion || $("#route-explorer").dataset.region;
       const selectedDay = region ? 0 : Number(dayButton?.dataset.routeDay || 0);
       renderRoutePanel(selectedRegionId, selectedDay);
+      if (dayButton && selectedDay) window.openItineraryDay?.(selectedDay);
       return;
     }
     if (event.target.closest("[data-close-route-popover]")) { closePopover(true); return; }
     const placePin = event.target.closest("[data-place-id]");
     if (placePin) {
       const source = travelMapSource(state.data?.routeMap, placePin.dataset.mapRegion);
-      const options = placeOptions(source, placePin.dataset.placeId);
+      const options = placePin.dataset.placeQuery
+        ? [[placePin.dataset.placeLabel, placePin.dataset.placeQuery]]
+        : placeOptions(source, placePin.dataset.placeId);
       const [label, query] = options[0];
       showPopover(placePin, `<header><small>${escapeHtml(placePin.dataset.placeRole)}</small><strong data-popup-place-label>${escapeHtml(label)}</strong></header>
         ${options.length > 1 ? `<div class="popup-place-options">${options.map(([name, value], index) => `<button type="button" data-popup-query="${escapeHtml(value)}" data-popup-label="${escapeHtml(name)}" aria-pressed="${index === 0}">${escapeHtml(name)}</button>`).join("")}</div>` : ""}
