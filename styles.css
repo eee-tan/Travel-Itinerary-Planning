@@ -648,7 +648,6 @@ button:focus-visible,a:focus-visible {outline:2px solid var(--lake);outline-offs
   .itinerary-heading-actions #day-count { display: none; }
   .itinerary-edit-button { min-width: 52px; padding-inline: 10px; }
   .schedule-drag-handle { left: -20px; }
-  .prep-section .section-title { font-size: clamp(24px, 6.8vw, 28px); }
 }
 
 /* Editable itinerary, appointments and spending */
@@ -943,7 +942,6 @@ button:focus-visible,a:focus-visible {outline:2px solid var(--lake);outline-offs
 @media (max-width: 699px) {
   .section-disclosure > summary,
   .disclosure-meta { align-items: flex-end; }
-  .prep-section .section-title { font-size: clamp(24px, 6.8vw, 28px); }
 }
 
 /* Local candidate: nested preparation lists and touch-safe itinerary sorting. */
