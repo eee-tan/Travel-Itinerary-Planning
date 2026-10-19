@@ -458,7 +458,7 @@ function dayCard(day) {
     ? !state.collapsedEditDays.has(day.day)
     : state.expandedDay === day.day;
   const dayKey = itineraryDayKey(day);
-  const dayTitle = state.dayTitles[dayKey] || day.title;
+  const dayTitle = normalizeDayTitle(state.dayTitles[dayKey] || day.title);
   const schedule = (day.schedule || []).map((item) => {
     const noteKey = `${dayKey}:${item.id}`;
     const photo = state.dayPhotos[noteKey] || "";
@@ -800,12 +800,12 @@ function renderTimeline() {
     if (titleInput) {
       if (!state.editingItinerary) return;
       const day = state.data.days.find((item) => (item.id || `day-${String(item.day).padStart(2, "0")}`) === titleInput.dataset.dayTitle);
-      const title = titleInput.value.trim();
+      const title = normalizeDayTitle(titleInput.value.trim());
       if (day) {
         const dayKey = day.id || `day-${String(day.day).padStart(2, "0")}`;
-        if (title && title !== day.title) state.dayTitles[dayKey] = title;
+        if (title && title !== normalizeDayTitle(day.title)) state.dayTitles[dayKey] = title;
         else delete state.dayTitles[dayKey];
-        titleInput.value = state.dayTitles[dayKey] || day.title;
+        titleInput.value = normalizeDayTitle(state.dayTitles[dayKey] || day.title);
         savePersonalState();
       }
       return;
@@ -856,6 +856,18 @@ function renderTimeline() {
   $("#timeline").oninput = (event) => {
     const titleInput = event.target.closest("[data-day-title]");
     if (titleInput && state.editingItinerary) {
+      const selectionStart = titleInput.selectionStart;
+      const selectionEnd = titleInput.selectionEnd;
+      titleInput.value = normalizeDayTitle(titleInput.value);
+      titleInput.setSelectionRange?.(selectionStart, selectionEnd);
+      const day = state.data.days.find((item) => itineraryDayKey(item) === titleInput.dataset.dayTitle);
+      if (day) {
+        const dayKey = itineraryDayKey(day);
+        const title = titleInput.value.trim();
+        if (title && title !== normalizeDayTitle(day.title)) state.dayTitles[dayKey] = title;
+        else delete state.dayTitles[dayKey];
+        savePersonalState();
+      }
       titleInput.style.height = "auto";
       titleInput.style.height = `${titleInput.scrollHeight}px`;
       return;
@@ -1348,6 +1360,10 @@ function setupWorkspaceRefresh() {
   document.addEventListener("visibilitychange", refresh);
   window.addEventListener("focus", refresh);
   window.setInterval(refresh, 12000);
+}
+
+function normalizeDayTitle(value) {
+  return String(value || "").toLocaleUpperCase("en");
 }
 
 function itineraryDayKey(day) {
