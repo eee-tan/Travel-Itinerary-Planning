@@ -461,7 +461,16 @@ function dayCard(day) {
   const dayTitle = normalizeDayTitle(state.dayTitles[dayKey] || day.title);
   const schedule = (day.schedule || []).map((item) => {
     const noteKey = `${dayKey}:${item.id}`;
-    const photo = state.dayPhotos[noteKey] || "";
+    const photos = schedulePhotoSources(noteKey);
+    const photoGallery = photos.length ? `
+      <div class="schedule-photo-gallery" aria-label="${photos.length} itinerary photo${photos.length === 1 ? "" : "s"}">
+        ${photos.map((photo, photoIndex) => `
+          <span class="schedule-photo-item">
+            <button type="button" class="schedule-photo-thumb" data-media-src="${escapeHtml(photo)}" data-media-alt="${escapeHtml(`${dayTitle} · ${item.time} · Photo ${photoIndex + 1}`)}"><img src="${escapeHtml(photo)}" alt="Travel memory thumbnail ${photoIndex + 1}"></button>
+            <button type="button" class="schedule-photo-remove" data-remove-schedule-photo="${escapeHtml(noteKey)}" data-photo-index="${photoIndex}" aria-label="Remove photo ${photoIndex + 1}">×</button>
+          </span>
+        `).join("")}
+      </div>` : "";
     const destinations = scheduleLocations(noteKey, item);
     const mapLinks = destinations.map((destination, locationIndex) => `
       <span class="schedule-location-chip">
@@ -485,8 +494,8 @@ function dayCard(day) {
           ${(mapLinks || locationEditor) ? `<div class="schedule-map-links">${mapLinks}${locationEditor}</div>` : ""}
           <div class="schedule-quick-record">
             <div class="schedule-note"><input type="text" maxlength="160" data-schedule-note="${escapeHtml(noteKey)}" value="${escapeHtml(state.dayNotes[noteKey] || "")}" placeholder="Add a quick note…" aria-label="Quick note for ${escapeHtml(item.time)} ${escapeHtml(item.text)}"><span role="status"></span></div>
-            <label class="schedule-photo-add" title="Add a photo"><input type="file" accept="image/*" data-schedule-photo="${escapeHtml(noteKey)}"><span aria-hidden="true">＋</span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="3"/><path d="m3 16 5-5 4 4 3-3 6 6M9 9h.01"/></svg><span class="sr-only">Add photo</span></label>
-            ${photo ? `<button type="button" class="schedule-photo-thumb" data-media-src="${escapeHtml(photo)}" data-media-alt="${escapeHtml(`${day.title} · ${item.time}`)}"><img src="${escapeHtml(photo)}" alt="Travel memory thumbnail"></button><button type="button" class="schedule-photo-remove" data-remove-schedule-photo="${escapeHtml(noteKey)}" aria-label="Remove photo">×</button>` : ""}
+            <label class="schedule-photo-add" title="Add photos"><input type="file" accept="image/*" multiple data-schedule-photo="${escapeHtml(noteKey)}"><span aria-hidden="true">＋</span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="3"/><path d="m3 16 5-5 4 4 3-3 6 6M9 9h.01"/></svg><span class="sr-only">Add one or more photos</span></label>
+            ${photoGallery}
           </div>
         </div>
       </li>
@@ -520,6 +529,12 @@ function dayCard(day) {
       </div>
     </article>
   `;
+}
+
+function schedulePhotoSources(noteKey) {
+  const value = state.dayPhotos[noteKey];
+  if (Array.isArray(value)) return value.filter((source) => typeof source === "string" && source);
+  return typeof value === "string" && value ? [value] : [];
 }
 
 function navigationDestinations(item) {
@@ -700,7 +715,11 @@ function renderTimeline() {
     if (mediaButton) { openMediaLightbox(mediaButton.dataset.mediaSrc, mediaButton.dataset.mediaAlt); return; }
     const removePhoto = event.target.closest("[data-remove-schedule-photo]");
     if (removePhoto) {
-      delete state.dayPhotos[removePhoto.dataset.removeSchedulePhoto];
+      const photoKey = removePhoto.dataset.removeSchedulePhoto;
+      const photos = schedulePhotoSources(photoKey);
+      photos.splice(Number(removePhoto.dataset.photoIndex), 1);
+      if (photos.length) state.dayPhotos[photoKey] = photos;
+      else delete state.dayPhotos[photoKey];
       savePersonalState();
       renderTimeline();
       return;
@@ -828,10 +847,11 @@ function renderTimeline() {
     }
     const photoInput = event.target.closest("[data-schedule-photo]");
     if (photoInput) {
-      const file = photoInput.files?.[0];
-      if (!file) return;
-      imageFileToDataUrl(file, { maxEdge: 1000, quality: .78 }).then((source) => {
-        state.dayPhotos[photoInput.dataset.schedulePhoto] = source;
+      const files = [...(photoInput.files || [])];
+      if (!files.length) return;
+      Promise.all(files.map((file) => imageFileToDataUrl(file, { maxEdge: 1000, quality: .78 }))).then((sources) => {
+        const photoKey = photoInput.dataset.schedulePhoto;
+        state.dayPhotos[photoKey] = [...schedulePhotoSources(photoKey), ...sources];
         savePersonalState();
         renderTimeline();
       }).catch((error) => window.alert(error.message));
