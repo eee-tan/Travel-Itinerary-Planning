@@ -537,6 +537,22 @@ function schedulePhotoSources(noteKey) {
   return typeof value === "string" && value ? [value] : [];
 }
 
+const schedulePhotoUploadQueues = new Map();
+
+function queueSchedulePhotoUpload(photoKey, files) {
+  const previous = schedulePhotoUploadQueues.get(photoKey) || Promise.resolve();
+  const upload = previous.catch(() => {}).then(async () => {
+    const sources = await Promise.all(files.map((file) => imageFileToDataUrl(file, { maxEdge: 1000, quality: .78 })));
+    state.dayPhotos[photoKey] = [...schedulePhotoSources(photoKey), ...sources];
+    savePersonalState();
+    renderTimeline();
+  });
+  schedulePhotoUploadQueues.set(photoKey, upload);
+  upload.catch((error) => window.alert(error.message)).finally(() => {
+    if (schedulePhotoUploadQueues.get(photoKey) === upload) schedulePhotoUploadQueues.delete(photoKey);
+  });
+}
+
 function navigationDestinations(item) {
   const policy = state.data.mapLinks?.navigationPolicy || { noNavigationTypes: [], selfNavigationTypes: [] };
   if (policy.noNavigationTypes.includes(item.type)) return [];
@@ -849,12 +865,7 @@ function renderTimeline() {
     if (photoInput) {
       const files = [...(photoInput.files || [])];
       if (!files.length) return;
-      Promise.all(files.map((file) => imageFileToDataUrl(file, { maxEdge: 1000, quality: .78 }))).then((sources) => {
-        const photoKey = photoInput.dataset.schedulePhoto;
-        state.dayPhotos[photoKey] = [...schedulePhotoSources(photoKey), ...sources];
-        savePersonalState();
-        renderTimeline();
-      }).catch((error) => window.alert(error.message));
+      queueSchedulePhotoUpload(photoInput.dataset.schedulePhoto, files);
       return;
     }
     const noteInput = event.target.closest("[data-schedule-note]");
@@ -1224,6 +1235,8 @@ function setupAppointmentDialog() {
 function personalStorageKey(type) { return `travel-plan:${type}:${state.data.metadata.tripId}`; }
 
 let workspacePushTimer = 0;
+let workspacePushInFlight = false;
+let workspaceLocalRevision = 0;
 let workspaceLastUpdatedAt = null;
 let workspaceSyncReady = false;
 
@@ -1318,7 +1331,10 @@ function renderPersonalViews() {
 async function loadWorkspaceState({ refreshViews = false } = {}) {
   if (!sharedBackendAvailable()) return;
   if (state.editingItinerary || state.editingAppointmentId) return;
+  if (workspacePushTimer || workspacePushInFlight) return;
+  const revisionAtStart = workspaceLocalRevision;
   const remote = await requestWorkspace();
+  if (revisionAtStart !== workspaceLocalRevision || workspacePushTimer || workspacePushInFlight) return;
   const migrationKey = personalStorageKey("workspace-migrated-v1");
   if (!remote.payload) {
     const created = await requestWorkspace("POST", personalStateSnapshot());
@@ -1347,6 +1363,8 @@ function scheduleWorkspacePush() {
   if (!workspaceSyncReady || !sharedBackendAvailable()) return;
   window.clearTimeout(workspacePushTimer);
   workspacePushTimer = window.setTimeout(async () => {
+    workspacePushTimer = 0;
+    workspacePushInFlight = true;
     try {
       const local = localWorkspaceSnapshot();
       const remote = await requestWorkspace();
@@ -1367,6 +1385,8 @@ function scheduleWorkspacePush() {
       }
     } catch (error) {
       console.error("Cross-device workspace sync failed", error);
+    } finally {
+      workspacePushInFlight = false;
     }
   }, 450);
 }
@@ -1429,7 +1449,10 @@ function savePersonalState({ syncRemote = true, savedAt = null } = {}) {
   localStorage.setItem(personalStorageKey("custom-appointments"), JSON.stringify(state.customAppointments));
   localStorage.setItem(personalStorageKey("expenses"), JSON.stringify(state.expenses));
   localStorage.setItem(personalStorageKey("saved-at"), savedAt || new Date().toISOString());
-  if (syncRemote) scheduleWorkspacePush();
+  if (syncRemote) {
+    workspaceLocalRevision += 1;
+    scheduleWorkspacePush();
+  }
 }
 
 const moneyText = (currency, amount) => new Intl.NumberFormat("en-SG", { style: "currency", currency, maximumFractionDigits: 2 }).format(Number(amount) || 0);
