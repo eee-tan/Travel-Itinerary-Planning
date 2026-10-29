@@ -675,11 +675,11 @@ button:focus-visible,a:focus-visible {outline:2px solid var(--lake);outline-offs
 .appointment-body a { display: inline-block; margin-top: 9px; color: var(--lake); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
 
 .schedule-note { min-height: 30px; margin-top: 7px; display: flex; align-items: center; gap: 7px; }
-.schedule-note input { width: min(100%,420px); height: 30px; padding: 3px 8px; border: 1px solid transparent; border-radius: 7px; outline: 0; color: var(--ink); background: transparent; font: inherit; font-size: 11px; transition: border-color .18s ease,background .18s ease; }
-.schedule-note input::placeholder { color: #9aa6a3; }
-.schedule-note input:hover { border-bottom-color: var(--line); }
-.schedule-note input:focus,.schedule-note input:not(:placeholder-shown) { border-color: transparent; background: transparent; }
-.schedule-note input:focus { border-bottom-color: #b8ced2; border-radius: 0; }
+.schedule-note textarea { width: min(100%,420px); min-height: 30px; height: 30px; padding: 3px 8px; overflow: hidden; resize: none; border: 1px solid transparent; border-radius: 7px; outline: 0; color: var(--ink); background: transparent; font: inherit; font-size: 11px; line-height: 1.45; overflow-wrap: anywhere; transition: border-color .18s ease,background .18s ease; }
+.schedule-note textarea::placeholder { color: #9aa6a3; }
+.schedule-note textarea:hover { border-bottom-color: var(--line); }
+.schedule-note textarea:focus,.schedule-note textarea:not(:placeholder-shown) { border-color: transparent; background: transparent; }
+.schedule-note textarea:focus { border-bottom-color: #b8ced2; border-radius: 0; }
 .schedule-note span { color: var(--forest); font-size: 9px; }
 .expense-form > button { min-height: 38px; padding: 0 14px; border: 0; border-radius: 9px; color: white; background: var(--lake); font-size: 11px; font-weight: 750; cursor: pointer; }
 

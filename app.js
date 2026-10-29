@@ -2,7 +2,8 @@ const state = {
   data: null,
   config: null,
   runtimeAdapters: {},
-  expandedDay: null,
+  expandedDays: new Set(),
+  itineraryExpansionInitialized: false,
   purchasedTickets: new Set(),
   todos: [],
   dayNotes: {},
@@ -11,8 +12,6 @@ const state = {
   itinerarySchedule: {},
   itineraryLocations: {},
   editingItinerary: false,
-  expandedDayBeforeEdit: null,
-  collapsedEditDays: new Set(),
   editingLocationKey: null,
   appointmentMedia: {},
   appointmentEdits: {},
@@ -454,9 +453,7 @@ function inlineTicketMarkup(ticket) {
 function dayCard(day) {
   const today = todayForTrip();
   const isToday = day.date === today;
-  const expanded = state.editingItinerary
-    ? !state.collapsedEditDays.has(day.day)
-    : state.expandedDay === day.day;
+  const expanded = state.expandedDays.has(day.day);
   const dayKey = itineraryDayKey(day);
   const dayTitle = normalizeDayTitle(state.dayTitles[dayKey] || day.title);
   const schedule = (day.schedule || []).map((item) => {
@@ -493,7 +490,7 @@ function dayCard(day) {
           ${scheduleTickets}
           ${(mapLinks || locationEditor) ? `<div class="schedule-map-links">${mapLinks}${locationEditor}</div>` : ""}
           <div class="schedule-quick-record">
-            <div class="schedule-note"><input type="text" maxlength="160" data-schedule-note="${escapeHtml(noteKey)}" value="${escapeHtml(state.dayNotes[noteKey] || "")}" placeholder="Add a quick note…" aria-label="Quick note for ${escapeHtml(item.time)} ${escapeHtml(item.text)}"><span role="status"></span></div>
+            <div class="schedule-note"><textarea rows="1" maxlength="160" data-schedule-note="${escapeHtml(noteKey)}" placeholder="Add a quick note…" aria-label="Quick note for ${escapeHtml(item.time)} ${escapeHtml(item.text)}">${escapeHtml(state.dayNotes[noteKey] || "")}</textarea><span role="status"></span></div>
             <label class="schedule-photo-add" title="Add photos"><input type="file" accept="image/*" multiple data-schedule-photo="${escapeHtml(noteKey)}"><span aria-hidden="true">＋</span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="3"/><path d="m3 16 5-5 4 4 3-3 6 6M9 9h.01"/></svg><span class="sr-only">Add one or more photos</span></label>
             ${photoGallery}
           </div>
@@ -697,24 +694,39 @@ function clearScheduleDropIndicators() {
   $$(".is-drag-target,.is-drop-before,.is-drop-after", $("#timeline")).forEach((element) => element.classList.remove("is-drag-target", "is-drop-before", "is-drop-after"));
 }
 
+function resizeScheduleNote(input) {
+  input.style.height = "auto";
+  input.style.height = `${input.scrollHeight + input.offsetHeight - input.clientHeight}px`;
+}
+
+function resizeScheduleNotes() {
+  const timeline = $("#timeline");
+  if (!timeline) return;
+  $$("[data-schedule-note]", timeline).forEach(resizeScheduleNote);
+}
+
+let scheduleNoteResizeFrame = 0;
+window.addEventListener("resize", () => {
+  window.cancelAnimationFrame(scheduleNoteResizeFrame);
+  scheduleNoteResizeFrame = window.requestAnimationFrame(resizeScheduleNotes);
+});
+
 function renderTimeline() {
   const today = currentTripDay();
-  if (state.expandedDay === null) state.expandedDay = today;
+  if (!state.itineraryExpansionInitialized) {
+    state.expandedDays.add(today);
+    state.itineraryExpansionInitialized = true;
+  }
   $("#day-count").textContent = `${state.data.days.length} DAYS`;
   const editButton = $("#itinerary-edit");
   editButton.textContent = state.editingItinerary ? "Done" : "Edit";
   editButton.setAttribute("aria-pressed", String(state.editingItinerary));
   editButton.onclick = () => {
     if (!state.editingItinerary) {
-      state.expandedDayBeforeEdit = state.expandedDay;
       state.editingItinerary = true;
-      state.collapsedEditDays = new Set(state.data.days.map((day) => day.day));
     } else {
       state.editingItinerary = false;
-      state.collapsedEditDays.clear();
       state.editingLocationKey = null;
-      state.expandedDay = state.expandedDayBeforeEdit;
-      state.expandedDayBeforeEdit = null;
       captureItinerarySchedule();
       savePersonalState();
     }
@@ -726,6 +738,7 @@ function renderTimeline() {
     input.style.height = "auto";
     input.style.height = `${input.scrollHeight}px`;
   });
+  resizeScheduleNotes();
   $("#timeline").onclick = (event) => {
     const mediaButton = event.target.closest("[data-media-src]");
     if (mediaButton) { openMediaLightbox(mediaButton.dataset.mediaSrc, mediaButton.dataset.mediaAlt); return; }
@@ -768,13 +781,11 @@ function renderTimeline() {
       const day = state.data.days.find((entry) => entry.day === Number(addActivity.dataset.addActivity));
       if (!day) return;
       if (!state.editingItinerary) {
-        state.expandedDayBeforeEdit = day.day;
         state.editingItinerary = true;
-        state.collapsedEditDays = new Set(state.data.days.map((entry) => entry.day));
       }
       const item = { id: `custom-activity-${crypto.randomUUID()}`, time: "TBD", text: "" };
       day.schedule.push(item);
-      state.collapsedEditDays.delete(day.day);
+      state.expandedDays.add(day.day);
       captureItinerarySchedule();
       savePersonalState();
       renderTimeline();
@@ -791,21 +802,10 @@ function renderTimeline() {
     const card = toggle.closest(".day-card");
     const dayNumber = Number(card.dataset.day);
     const wasExpanded = toggle.getAttribute("aria-expanded") === "true";
-    if (state.editingItinerary) {
-      if (wasExpanded) state.collapsedEditDays.add(dayNumber);
-      else state.collapsedEditDays.delete(dayNumber);
-      renderTimeline();
-      return;
-    }
-    $$(".day-toggle", $("#timeline")).forEach((button) => button.setAttribute("aria-expanded", "false"));
-    $$(".day-detail", $("#timeline")).forEach((detail) => { detail.hidden = true; });
-    if (!wasExpanded) {
-      toggle.setAttribute("aria-expanded", "true");
-      $(`#day-detail-${dayNumber}`).hidden = false;
-      state.expandedDay = dayNumber;
-    } else {
-      state.expandedDay = null;
-    }
+    if (wasExpanded) state.expandedDays.delete(dayNumber);
+    else state.expandedDays.add(dayNumber);
+    toggle.setAttribute("aria-expanded", String(!wasExpanded));
+    $(`#day-detail-${dayNumber}`).hidden = wasExpanded;
   };
   $("#timeline").onsubmit = (event) => {
     const form = event.target.closest("[data-location-form]");
@@ -901,6 +901,11 @@ function renderTimeline() {
       }
       titleInput.style.height = "auto";
       titleInput.style.height = `${titleInput.scrollHeight}px`;
+      return;
+    }
+    const noteInput = event.target.closest("[data-schedule-note]");
+    if (noteInput) {
+      resizeScheduleNote(noteInput);
       return;
     }
     const timeInput = event.target.closest('[data-schedule-field="time"]');
@@ -1001,21 +1006,10 @@ function renderTimeline() {
 window.openItineraryDay = (dayNumber, { scroll = true } = {}) => {
   const card = $(`.day-card[data-day="${Number(dayNumber)}"]`);
   if (!card) return;
-  if (state.editingItinerary) {
-    state.collapsedEditDays.delete(Number(dayNumber));
-    const toggle = $(".day-toggle", card);
-    toggle?.setAttribute("aria-expanded", "true");
-    const detail = $(".day-detail", card);
-    if (detail) detail.hidden = false;
-    if (scroll) card.scrollIntoView({ behavior: "smooth", block: "start" });
-    return;
-  }
-  $$(".day-toggle", $("#timeline")).forEach((button) => button.setAttribute("aria-expanded", "false"));
-  $$(".day-detail", $("#timeline")).forEach((detail) => { detail.hidden = true; });
+  state.expandedDays.add(Number(dayNumber));
   const toggle = $(".day-toggle", card);
   toggle.setAttribute("aria-expanded", "true");
   $(".day-detail", card).hidden = false;
-  state.expandedDay = Number(dayNumber);
   if (scroll) card.scrollIntoView({ behavior: "smooth", block: "start" });
 };
 
