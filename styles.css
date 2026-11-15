@@ -1282,6 +1282,21 @@ body.is-touch-dragging { user-select: none; -webkit-user-select: none; cursor: g
   position: relative; min-width: 0; overflow: hidden; border-radius: 15px;
   background: #e7ece7; filter: drop-shadow(0 16px 22px rgba(32,48,43,.12));
 }
+.real-journey-map {
+  display: block; width: 100%; height: clamp(360px,62vw,680px); border: 0;
+  border-radius: inherit; background: #e7ece7; overflow: hidden;
+  font-family: Arial, sans-serif;
+}
+.real-journey-map__loading,
+.real-journey-map__error {
+  min-height: 100%; display: grid; place-items: center; padding: 24px;
+  color: var(--muted); text-align: center;
+}
+.real-journey-map .maplibregl-ctrl-top-left { top: 8px; left: 8px; }
+.real-journey-map .maplibregl-ctrl-group {
+  overflow: hidden; border-radius: 10px; box-shadow: 0 2px 10px rgba(20,35,40,.18);
+}
+.real-journey-map .maplibregl-ctrl-attrib { font-size: 10px; }
 .poster-map {
   position: relative; width: 100%; aspect-ratio: 1585 / 992; overflow: hidden;
   border-radius: inherit; background: #e7ece7; isolation: isolate;

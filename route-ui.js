@@ -162,29 +162,137 @@ function posterRouteDatesMarkup() {
   return `<div class="poster-route-dates" role="list" aria-label="Six driving legs by date">${rows}</div>`;
 }
 
+let activeJourneyMap = null;
+let journeyMapRenderId = 0;
+let mapLibreLoader = null;
+
+function realJourneyMapMarkup(route, day) {
+  const label = route && day
+    ? `Interactive road map for Day ${day.day}, ${formatFullCompactDate(day.date)}`
+    : "Interactive road map for the complete Kanto and Chubu journey";
+  return `<div class="real-journey-map" data-real-journey-map role="region" aria-label="${escapeHtml(label)}"><span class="real-journey-map__loading">Loading real map…</span></div>`;
+}
+
+function realMapStopForId(placeId) {
+  const authored = posterRouteStops.find((stop) => stop.id === placeId);
+  if (authored) return authored;
+  const canonical = canonicalPlaceFor(placeId);
+  return canonical?.geo ? {
+    id: placeId,
+    label: canonical.nameZh || canonical.name || placeId,
+    query: canonical.navigation?.query || canonical.googleMapsUrl || canonical.name || placeId,
+    geo: canonical.geo
+  } : null;
+}
+
+function loadMapLibre() {
+  if (!mapLibreLoader) {
+    mapLibreLoader = import("https://cdn.jsdelivr.net/npm/maplibre-gl@6.16.0/dist/maplibre-gl.mjs");
+  }
+  return mapLibreLoader;
+}
+
+function routeStopsFor(source, route) {
+  if (!route) return posterRouteStops;
+  const sourceRoute = routeLayersFor(source).find((item) => item.day === route.day);
+  return (transferPlaceIds.get(route.day) || sourceRoute?.placeIds || [])
+    .map(realMapStopForId)
+    .filter(Boolean);
+}
+
+function routeFeatureCollection(route) {
+  return {
+    type: "FeatureCollection",
+    features: posterTransferRoutes.map((transfer) => ({
+      type: "Feature",
+      properties: {
+        day: transfer.day,
+        color: posterRouteColor(transfer.day),
+        active: !route || transfer.day === route.day
+      },
+      geometry: { type: "LineString", coordinates: transfer.points }
+    }))
+  };
+}
+
+async function initializeRealJourneyMap(source, route) {
+  const renderId = ++journeyMapRenderId;
+  activeJourneyMap?.remove();
+  activeJourneyMap = null;
+  const container = document.querySelector("[data-real-journey-map]");
+  if (!container) return;
+  try {
+    const maplibregl = await loadMapLibre();
+    if (renderId !== journeyMapRenderId || !container.isConnected) return;
+    container.textContent = "";
+    const map = new maplibregl.Map({
+      container,
+      style: "https://tiles.openfreemap.org/styles/liberty",
+      center: [138.22, 36.05],
+      zoom: 6.2,
+      minZoom: 5,
+      maxZoom: 15,
+      attributionControl: true
+    });
+    activeJourneyMap = map;
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
+    const visibleStops = routeStopsFor(source, route);
+    map.once("load", () => {
+      if (renderId !== journeyMapRenderId || activeJourneyMap !== map) return;
+      map.addSource("journey-routes", { type: "geojson", data: routeFeatureCollection(route) });
+      map.addLayer({
+        id: "journey-route-casing",
+        type: "line",
+        source: "journey-routes",
+        paint: {
+          "line-color": "rgba(255,255,255,.88)",
+          "line-width": ["case", ["get", "active"], 7, 4],
+          "line-opacity": ["case", ["get", "active"], 1, 0.22]
+        },
+        layout: { "line-cap": "round", "line-join": "round" }
+      });
+      map.addLayer({
+        id: "journey-routes",
+        type: "line",
+        source: "journey-routes",
+        paint: {
+          "line-color": ["get", "color"],
+          "line-width": ["case", ["get", "active"], 4.6, 2.2],
+          "line-opacity": ["case", ["get", "active"], 0.96, 0.2]
+        },
+        layout: { "line-cap": "round", "line-join": "round" }
+      });
+      const points = route
+        ? (posterTransferRoutes.find((transfer) => transfer.day === route.day)?.points || visibleStops.map((stop) => [stop.geo.lng, stop.geo.lat]))
+        : posterTransferRoutes.flatMap((transfer) => transfer.points);
+      if (points.length) {
+        const bounds = points.reduce((box, point) => box.extend(point), new maplibregl.LngLatBounds(points[0], points[0]));
+        map.fitBounds(bounds, { padding: innerWidth < 700 ? 36 : 58, maxZoom: route ? 9.2 : 7.4, duration: 0 });
+      }
+    });
+  } catch (error) {
+    if (renderId !== journeyMapRenderId || !container.isConnected) return;
+    container.innerHTML = '<span class="real-journey-map__error">The real map preview could not load. Please check your connection.</span>';
+    console.error("Unable to load the Journey map", error);
+  }
+}
+
 function travelMapMarkup(source, route) {
   const day = route && state.data.days.find((item) => item.day === route.day);
-  const layout = route && dailyMapLayoutFor(source, route.day);
-  const placeLayers = placeLayersFor(source);
-  const visiblePlaceIds = route
-    ? (transferPlaceIds.get(route.day) || layout?.places || [])
-    : (source.overviewPlaceIds || placeLayers.map((place) => place.id));
   const transferLabel = route && transferRouteLabels.get(route.day);
-  const googleStops = route
-    ? (transferPlaceIds.get(route.day) || []).map((id) => posterRouteStops.find((stop) => stop.id === id)).filter(Boolean)
-    : posterRouteStops;
+  const mapStops = routeStopsFor(source, route);
   const mapNote = route
     ? `Day ${day.day} · ${formatFullCompactDate(day.date)}${transferLabel ? ` · ${transferLabel[0]} → ${transferLabel[1]}` : ""}`
     : "Kanto & Chubu · 17-day overview";
   return `<div class="travel-map-block ${route ? "is-daily" : "is-overview"}" ${route ? `style="--route-color:${route.color}"` : ""}>
     <div class="journey-map-layout">
       <div class="journey-map-stage">
-        ${posterMapMarkup(source, visiblePlaceIds, route)}
+        ${realJourneyMapMarkup(route, day)}
       </div>
     </div>
-    <div class="poster-map-tools">${posterLegendMarkup()}<a class="poster-google-route" href="${escapeHtml(googleDirectionsUrl(googleStops))}" target="_blank" rel="noopener noreferrer">Open in Google Maps ↗</a></div>
+    <div class="poster-map-tools">${posterLegendMarkup()}<a class="poster-google-route" href="${escapeHtml(googleDirectionsUrl(mapStops))}" target="_blank" rel="noopener noreferrer">Open in Google Maps ↗</a></div>
     ${route ? "" : posterRouteDatesMarkup()}
-    <div class="map-utility"><span>${escapeHtml(mapNote)} · Fixed illustrated route poster</span></div>
+    <div class="map-utility"><span>${escapeHtml(mapNote)} · MapLibre street map</span></div>
   </div>`;
 }
 
@@ -206,6 +314,7 @@ function renderRoutePanel(regionId, dayNumber = 0) {
   const route = mapRoutes.find((item) => item.day === dayNumber);
   root.innerHTML = `${regions.length > 1 ? `<div class="route-region-tabs" aria-label="Destination countries">${regions.map((region) => `<button type="button" data-route-region="${escapeHtml(region.id)}" aria-pressed="${region.id === source.id}">${escapeHtml(region.label || region.heading?.text || region.id)}</button>`).join("")}</div>` : ""}
   <div class="route-day-tabs" aria-label="Trip route dates"><button type="button" data-route-day="0" aria-pressed="${!route}">Overview</button>${mapRoutes.map((item) => { const day = state.data.days.find((candidate) => candidate.day === item.day); const hasRoute = transferRouteColors.has(item.day); return day ? `<button type="button" data-route-day="${item.day}" style="--route-color:${item.color}" aria-pressed="${item === route}">${hasRoute ? "<i></i>" : ""}Day ${day.day}, ${escapeHtml(formatCompactDate(day.date))}</button>` : ""; }).join("")}</div>${travelMapMarkup(source, route)}`;
+  void initializeRealJourneyMap(source, route);
 }
 
 function setupRouteExplorer() {
